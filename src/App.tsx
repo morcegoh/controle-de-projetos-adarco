@@ -634,12 +634,34 @@ function App({ user }: { user: User }) {
 
   const processedProjects = projects.map(p => {
     let status = p.status;
-    const targetDate = p.endDate || p.forecastDate;
+    const targetDate = p.forecastDate;
     if (targetDate && p.status !== 'COMPLETED' && p.status !== 'CANCELED') {
       const isPast = new Date() > new Date(targetDate + 'T23:59:59');
       if (isPast) status = 'LATE';
     }
-    return { ...p, status };
+    
+    const tasks = p.tasks.map(t => {
+       let tStatus = t.status;
+       const tTargetDate = t.forecastDate;
+       if (tTargetDate && t.status !== 'COMPLETED' && t.status !== 'CANCELED') {
+         const tPast = new Date() > new Date(tTargetDate + 'T23:59:59');
+         if (tPast) tStatus = 'LATE';
+       }
+
+       const subtasks = t.subtasks.map(st => {
+           let stStatus = st.status;
+           const stTargetDate = st.forecastDate;
+           if (stTargetDate && st.status !== 'COMPLETED' && st.status !== 'CANCELED') {
+             const stPast = new Date() > new Date(stTargetDate + 'T23:59:59');
+             if (stPast) stStatus = 'LATE';
+           }
+           return { ...st, status: stStatus };
+       });
+
+       return { ...t, status: tStatus, subtasks };
+    });
+
+    return { ...p, status, tasks };
   });
 
   // Flatten tasks for board view
@@ -658,7 +680,9 @@ function App({ user }: { user: User }) {
               <Text style={styles.backButtonText}>← Voltar</Text>
             </TouchableOpacity>
           )}
-          <Text style={styles.appName}>Controle de Projetos Adarco</Text>
+          <TouchableOpacity onPress={() => { setActiveTab('GANTT'); setHighlightedTaskId(null); }}>
+            <Text style={styles.appName}>Controle de Projetos Adarco</Text>
+          </TouchableOpacity>
         </View>
 
         {activeTab === 'GANTT' && (
@@ -1490,15 +1514,16 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               // Colors based on project vs task and progress
               let blockStyle: any = null;
               
-              let isLateProject = false;
+              let isLateItem = false;
               if (row.type === 'project') {
-                isLateProject = data.status === 'LATE';
+                isLateItem = data.status === 'LATE';
                 blockStyle = {
-                  backgroundColor: isLateProject ? 'rgba(239, 68, 68, 0.2)' : 'var(--text-secondary)', // Red tint or Slate 700
-                  borderColor: isLateProject ? 'var(--danger)' : 'var(--text-secondary)',
+                  backgroundColor: isLateItem ? 'rgba(239, 68, 68, 0.2)' : 'var(--text-secondary)', // Red tint or Slate 700
+                  borderColor: isLateItem ? 'var(--danger)' : 'var(--text-secondary)',
                   borderWidth: 1,
                 };
               } else {
+                isLateItem = data.status === 'LATE';
                 let barColor = row.type === 'subtask' ? '#6EE7B7' : '#0BFD71'; // Green fallback (lighter for subtask)
                 let areaColor = row.type === 'subtask' ? 'rgba(110, 231, 183, 0.15)' : 'rgba(11, 253, 113, 0.2)';
                 let useGradient = true;
@@ -1512,10 +1537,17 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                    areaColor = 'rgba(100, 116, 139, 0.2)';
                    useGradient = false;
                 }
+                
+                if (isLateItem) {
+                   areaColor = 'rgba(239, 68, 68, 0.15)'; // Red area for late items
+                }
+
                 blockStyle = {
                    areaColor,
                    barColor,
-                   useGradient
+                   useGradient,
+                   borderColor: isLateItem ? 'var(--danger)' : 'transparent',
+                   borderWidth: isLateItem ? 1 : 0,
                 };
               }
 
@@ -1524,8 +1556,8 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                   styles.rowBase, 
                   styles.timelineRow, 
                   row.type === 'project' && styles.projectTimelineRow,
-                  isLateProject && { backgroundColor: 'rgba(239, 68, 68, 0.05)' },
-                  row.type === 'subtask' && { backgroundColor: 'var(--bg-card)' }
+                  isLateItem && { backgroundColor: 'rgba(239, 68, 68, 0.05)' },
+                  row.type === 'subtask' && !isLateItem && { backgroundColor: 'var(--bg-card)' }
                 ]}>
                   {/* Background Grid Lines */}
                   <View style={[StyleSheet.absoluteFill, { flexDirection: 'row' }]}>
@@ -1546,10 +1578,10 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                      >
                        {row.type === 'project' ? (
                           <View style={[styles.taskBlockArea, blockStyle]}>
-                             <View style={[{ width: `${data.progress}%`, backgroundColor: isLateProject ? 'var(--danger)' : 'var(--text-muted)', height: '100%', opacity: 0.5 }]} />
+                             <View style={[{ width: `${data.progress}%`, backgroundColor: isLateItem ? 'var(--danger)' : 'var(--text-muted)', height: '100%', opacity: 0.5 }]} />
                           </View>
                        ) : (
-                          <View style={[styles.taskBlockArea, { backgroundColor: blockStyle.areaColor }]}>
+                          <View style={[styles.taskBlockArea, { backgroundColor: blockStyle.areaColor, borderColor: blockStyle.borderColor, borderWidth: blockStyle.borderWidth }]}>
                              {blockStyle.useGradient ? (
                                <LinearGradient 
                                   colors={row.type === 'subtask' ? ['#059669', '#047857'] : ['#008744', '#005B2E']} 
