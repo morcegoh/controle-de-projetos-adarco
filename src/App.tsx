@@ -259,13 +259,11 @@ function App({ user }: { user: User }) {
           const computedProgress = taskSubtasks.length > 0 ? Math.round(totalSubProgress / taskSubtasks.length) : (t.progress || 0);
           
           let computedEndDate = t.end_date;
-          if (taskSubtasks.length > 0) {
+          if (taskSubtasks.length > 0 && !computedEndDate) {
             const validEndDates = taskSubtasks.map(st => st.end_date).filter(Boolean);
             if (validEndDates.length > 0) {
               validEndDates.sort();
               computedEndDate = validEndDates[validEndDates.length - 1];
-            } else {
-              computedEndDate = t.end_date;
             }
           }
 
@@ -303,13 +301,11 @@ function App({ user }: { user: User }) {
         const avgProgress = tasksWithSubtasks.length > 0 ? Math.round(totalProgress / tasksWithSubtasks.length) : (p.progress || 0);
         
         let computedProjectEndDate = p.end_date;
-        if (tasksWithSubtasks.length > 0) {
+        if (tasksWithSubtasks.length > 0 && !computedProjectEndDate) {
           const validEndDates = tasksWithSubtasks.map(t => t.endDate).filter(Boolean);
           if (validEndDates.length > 0) {
             validEndDates.sort();
             computedProjectEndDate = validEndDates[validEndDates.length - 1];
-          } else {
-            computedProjectEndDate = p.end_date;
           }
         }
 
@@ -535,8 +531,9 @@ function App({ user }: { user: User }) {
         updateData.end_date = new Date().toISOString().substring(0, 10);
       } else if (newProgress > 0) {
         updateData.status = 'IN_PROGRESS';
-        updateData.end_date = null;
-      } else updateData.end_date = null;
+      } else {
+        updateData.status = 'NOT_STARTED';
+      }
 
       const { error } = await supabase.from('subtasks').update(updateData).eq('id', subtaskId);
       if (error) throw error;
@@ -573,7 +570,6 @@ function App({ user }: { user: User }) {
 
       const updateData: any = { progress: newProgress, status };
       if (newProgress === 100) updateData.end_date = new Date().toISOString().substring(0, 10);
-      else updateData.end_date = null;
 
       const { error } = await supabase.from('tasks').update(updateData).eq('id', taskId);
       if (error) throw error;
@@ -811,6 +807,7 @@ function App({ user }: { user: User }) {
         <EditorModal 
           item={editingItem} 
           projects={projects}
+          userEmail={user?.email}
           onClose={() => setEditingItem(null)} 
           onSaveProject={handleSaveProject}
           onSaveTask={handleSaveTask}
@@ -847,7 +844,8 @@ const webInputDOMStyle = {
   boxSizing: 'border-box' as const,
 };
 
-const EditorModal = ({ item, projects, onClose, onSaveProject, onSaveTask, onSaveSubtask, onDeleteProject, onDeleteTask, onDeleteSubtask, onConvertTaskToSubtask, onConvertSubtaskToTask }: any) => {
+const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSaveTask, onSaveSubtask, onDeleteProject, onDeleteTask, onDeleteSubtask, onConvertTaskToSubtask, onConvertSubtaskToTask }: any) => {
+  const isMasterUser = userEmail === 'heder.santos@adarco.com.br';
   const isProject = item.type === 'project';
   const isTask = item.type === 'task';
   const isSubtask = item.type === 'subtask';
@@ -1185,7 +1183,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                  />
               </TouchableOpacity>
             </View>
-            {isProject && (
+            {(isProject || isMasterUser) && (
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>Data Término</Text>
                 <TouchableOpacity style={{backgroundColor: 'transparent'}}>
@@ -1193,6 +1191,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                      type="date"
                      style={webInputDOMStyle} 
                      value={endDate} 
+                     disabled={!isProject && !isMasterUser}
                      onChange={(e) => setEndDate(e.target.value)} 
                    />
                 </TouchableOpacity>
@@ -1367,12 +1366,18 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
           scrollEnabled={false} // Only body dictates scrolling
           style={styles.rightPanelHeader}
         >
-          {daysArray.map((day, i) => (
-            <View key={i} style={styles.dayHeader}>
-              <Text style={styles.dayHeaderText}>{format(day, 'dd')}</Text>
-              <Text style={styles.daySubText}>{format(day, 'MMM')}</Text>
-            </View>
-          ))}
+          {daysArray.map((day, i) => {
+            const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+            return (
+              <View key={i} style={[
+                styles.dayHeader,
+                isToday && { backgroundColor: 'rgba(11, 253, 113, 0.1)', borderBottomWidth: 2, borderBottomColor: '#0BFD71' }
+              ]}>
+                <Text style={[styles.dayHeaderText, isToday && { color: '#0BFD71', fontWeight: 'bold' }]}>{format(day, 'dd')}</Text>
+                <Text style={[styles.daySubText, isToday && { color: '#0BFD71', fontWeight: 'bold' }]}>{format(day, 'MMM')}</Text>
+              </View>
+            );
+          })}
         </ScrollView>
       </View>
 
@@ -1518,9 +1523,14 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               if (row.type === 'project') {
                 isLateItem = data.status === 'LATE';
                 blockStyle = {
-                  backgroundColor: isLateItem ? 'rgba(239, 68, 68, 0.2)' : 'var(--text-secondary)', // Red tint or Slate 700
-                  borderColor: isLateItem ? 'var(--danger)' : 'var(--text-secondary)',
+                  backgroundColor: isLateItem ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.3)', // Red tint or Primary tint
+                  borderColor: isLateItem ? 'var(--danger)' : 'var(--primary)',
                   borderWidth: 1,
+                  shadowColor: isLateItem ? 'var(--danger)' : 'transparent',
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: isLateItem ? 0.8 : 0,
+                  shadowRadius: isLateItem ? 6 : 0,
+                  elevation: isLateItem ? 4 : 0,
                 };
               } else {
                 isLateItem = data.status === 'LATE';
@@ -1548,6 +1558,11 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                    useGradient,
                    borderColor: isLateItem ? 'var(--danger)' : 'transparent',
                    borderWidth: isLateItem ? 1 : 0,
+                   shadowColor: isLateItem ? 'var(--danger)' : 'transparent',
+                   shadowOffset: { width: 0, height: 0 },
+                   shadowOpacity: isLateItem ? 0.8 : 0,
+                   shadowRadius: isLateItem ? 6 : 0,
+                   elevation: isLateItem ? 4 : 0,
                 };
               }
 
@@ -1561,9 +1576,22 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                 ]}>
                   {/* Background Grid Lines */}
                   <View style={[StyleSheet.absoluteFill, { flexDirection: 'row' }]}>
-                     {daysArray.map((_, i) => (
-                       <View key={i} style={styles.gridLine} />
-                     ))}
+                     {daysArray.map((day, i) => {
+                       const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                       return (
+                         <View key={i} style={[
+                           styles.gridLine,
+                           isToday && { 
+                             borderRightColor: '#0BFD71', 
+                             borderLeftColor: '#0BFD71', 
+                             borderRightWidth: 1, 
+                             borderLeftWidth: 1, 
+                             backgroundColor: 'rgba(11, 253, 113, 0.05)',
+                             zIndex: 10
+                           }
+                         ]} />
+                       );
+                     })}
                   </View>
 
                   {/* Task/Project Block */}
@@ -1581,7 +1609,16 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                              <View style={[{ width: `${data.progress}%`, backgroundColor: isLateItem ? 'var(--danger)' : 'var(--text-muted)', height: '100%', opacity: 0.5 }]} />
                           </View>
                        ) : (
-                          <View style={[styles.taskBlockArea, { backgroundColor: blockStyle.areaColor, borderColor: blockStyle.borderColor, borderWidth: blockStyle.borderWidth }]}>
+                          <View style={[styles.taskBlockArea, { 
+                             backgroundColor: blockStyle.areaColor, 
+                             borderColor: blockStyle.borderColor, 
+                             borderWidth: blockStyle.borderWidth,
+                             shadowColor: blockStyle.shadowColor,
+                             shadowOffset: blockStyle.shadowOffset,
+                             shadowOpacity: blockStyle.shadowOpacity,
+                             shadowRadius: blockStyle.shadowRadius,
+                             elevation: blockStyle.elevation 
+                          }]}>
                              {blockStyle.useGradient ? (
                                <LinearGradient 
                                   colors={row.type === 'subtask' ? ['#059669', '#047857'] : ['#008744', '#005B2E']} 
