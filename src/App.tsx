@@ -36,6 +36,20 @@ const safeDifferenceInDays = (dateLeft?: string | Date, dateRight?: string | Dat
 
 const { width } = Dimensions.get('window');
 
+type Subtask = {
+  id: string;
+  title: string;
+  assignees: string[];
+  progress: number;
+  startDate: string;
+  forecastDate: string;
+  endDate?: string;
+  status: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  updates: string;
+  objective?: string;
+};
+
 type Task = {
   id: string;
   title: string;
@@ -48,6 +62,7 @@ type Task = {
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
   updates: string;
   objective?: string;
+  subtasks: Subtask[];
 };
 
 type Project = {
@@ -231,11 +246,50 @@ function App({ user }: { user: User }) {
       
       const { data: taskData, error: taskErr } = await supabase.from('tasks').select('*');
       if (taskErr) throw taskErr;
+      
+      const { data: subtaskData, error: subtaskErr } = await supabase.from('subtasks').select('*');
+      if (subtaskErr) throw subtaskErr;
 
       const formattedProjects = (projData || []).map(p => {
         const projectTasks = (taskData || []).filter(t => t.project_id === p.id);
-        const totalProgress = projectTasks.reduce((sum, t) => sum + (t.progress || 0), 0);
-        const avgProgress = projectTasks.length > 0 ? Math.round(totalProgress / projectTasks.length) : 0;
+        
+        const tasksWithSubtasks = projectTasks.map(t => {
+          const taskSubtasks = (subtaskData || []).filter(st => st.task_id === t.id);
+          const totalSubProgress = taskSubtasks.reduce((sum, st) => sum + (st.progress || 0), 0);
+          const computedProgress = taskSubtasks.length > 0 ? Math.round(totalSubProgress / taskSubtasks.length) : (t.progress || 0);
+          
+          return {
+            id: t.id,
+            projectId: t.project_id,
+            title: t.title,
+            assignees: t.assignees || [],
+            progress: computedProgress,
+            startDate: t.start_date,
+            forecastDate: t.forecast_date,
+            endDate: t.end_date,
+            status: t.status,
+            riskLevel: t.risk_level,
+            updates: t.updates,
+            objective: t.objective,
+            subtasks: taskSubtasks.map(st => ({
+              id: st.id,
+              taskId: st.task_id,
+              title: st.title,
+              assignees: st.assignees || [],
+              progress: st.progress || 0,
+              startDate: st.start_date,
+              forecastDate: st.forecast_date,
+              endDate: st.end_date,
+              status: st.status,
+              riskLevel: st.risk_level,
+              updates: st.updates,
+              objective: st.objective,
+            }))
+          };
+        });
+
+        const totalProgress = tasksWithSubtasks.reduce((sum, t) => sum + t.progress, 0);
+        const avgProgress = tasksWithSubtasks.length > 0 ? Math.round(totalProgress / tasksWithSubtasks.length) : 0;
         
         return {
           id: p.id,
@@ -247,20 +301,7 @@ function App({ user }: { user: User }) {
           forecastDate: p.forecast_date,
           endDate: p.end_date,
           status: p.status,
-          tasks: projectTasks.map(t => ({
-            id: t.id,
-            projectId: t.project_id,
-            title: t.title,
-            assignees: t.assignees || [],
-            progress: t.progress || 0,
-            startDate: t.start_date,
-            forecastDate: t.forecast_date,
-            endDate: t.end_date,
-            status: t.status,
-            riskLevel: t.risk_level,
-            updates: t.updates,
-            objective: t.objective
-          }))
+          tasks: tasksWithSubtasks
         };
       });
       setProjects(formattedProjects);
@@ -276,7 +317,7 @@ function App({ user }: { user: User }) {
   }, [user]);
 
   const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
-  const [editingItem, setEditingItem] = useState<{ type: 'project' | 'task', isNew: boolean, projectData?: Project, taskData?: Task, parentProjectId?: string } | null>(null);
+  const [editingItem, setEditingItem] = useState<{ type: 'project' | 'task' | 'subtask', isNew: boolean, projectData?: Project, taskData?: Task, subtaskData?: Subtask, parentProjectId?: string, parentTaskId?: string } | null>(null);
 
   const handleTaskClickGantt = (taskId: string) => {
     setHighlightedTaskId(taskId);
@@ -352,6 +393,63 @@ function App({ user }: { user: User }) {
       setEditingItem(null);
       fetchProjects();
     } catch (e) { console.error('Delete task error:', e); }
+  };
+
+  const handleSaveSubtask = async (taskId: string, subtaskData: Partial<Subtask>) => {
+    try {
+      const payload = {
+        task_id: taskId,
+        title: subtaskData.title,
+        assignees: subtaskData.assignees,
+        start_date: subtaskData.startDate,
+        forecast_date: subtaskData.forecastDate,
+        end_date: subtaskData.endDate || null,
+        status: subtaskData.status,
+        risk_level: subtaskData.riskLevel,
+        updates: subtaskData.updates,
+        objective: subtaskData.objective,
+        progress: subtaskData.progress || 0
+      };
+
+      if (editingItem?.isNew) {
+        const { error } = await supabase.from('subtasks').insert([payload]);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('subtasks').update(payload).eq('id', subtaskData.id);
+        if (error) throw error;
+      }
+      setEditingItem(null);
+      fetchProjects();
+    } catch (e) { console.error('Save subtask error:', e); }
+  };
+
+  const handleDeleteSubtask = async (id: string) => {
+    try {
+      const { error } = await supabase.from('subtasks').delete().eq('id', id);
+      if (error) throw error;
+      setEditingItem(null);
+      fetchProjects();
+    } catch (e) { console.error('Delete subtask error:', e); }
+  };
+
+  const handleUpdateSubtaskProgress = async (subtaskId: string, newProgress: number) => {
+    try {
+      const updateData: any = { progress: newProgress };
+      if (newProgress === 100) {
+        updateData.status = 'COMPLETED';
+        updateData.end_date = new Date().toISOString().substring(0, 10);
+      } else if (newProgress > 0) {
+        updateData.status = 'IN_PROGRESS';
+        updateData.end_date = null;
+      } else updateData.end_date = null;
+
+      const { error } = await supabase.from('subtasks').update(updateData).eq('id', subtaskId);
+      if (error) throw error;
+      
+      fetchProjects();
+    } catch (e) {
+      console.error('Failed to update progress', e);
+    }
   };
 
   const handleUpdateProgress = async (taskId: string, newProgress: number) => {
@@ -596,8 +694,10 @@ function App({ user }: { user: User }) {
           onClose={() => setEditingItem(null)} 
           onSaveProject={handleSaveProject}
           onSaveTask={handleSaveTask}
+          onSaveSubtask={handleSaveSubtask}
           onDeleteProject={handleDeleteProject}
           onDeleteTask={handleDeleteTask}
+          onDeleteSubtask={handleDeleteSubtask}
         />
       )}
     </View>
@@ -607,9 +707,11 @@ function App({ user }: { user: User }) {
 // -------------------------------------------------------------
 // EDITOR MODAL COMPONENT
 // -------------------------------------------------------------
-const EditorModal = ({ item, projects, onClose, onSaveProject, onSaveTask, onDeleteProject, onDeleteTask }: any) => {
+const EditorModal = ({ item, projects, onClose, onSaveProject, onSaveTask, onSaveSubtask, onDeleteProject, onDeleteTask, onDeleteSubtask }: any) => {
   const isProject = item.type === 'project';
-  const data = isProject ? (item.projectData || {}) : (item.taskData || {});
+  const isTask = item.type === 'task';
+  const isSubtask = item.type === 'subtask';
+  const data = isProject ? (item.projectData || {}) : isTask ? (item.taskData || {}) : (item.subtaskData || {});
   
   const [title, setTitle] = useState(data.title || '');
   const [department, setDepartment] = useState(data.department || '');
@@ -625,6 +727,7 @@ const EditorModal = ({ item, projects, onClose, onSaveProject, onSaveTask, onDel
   const [newUpdateContent, setNewUpdateContent] = useState('');
   const [newUpdateUser, setNewUpdateUser] = useState('Heder Santos');
   const [selectedProjectId, setSelectedProjectId] = useState(item.parentProjectId || (projects?.length > 0 ? projects[0].id : ''));
+  const [selectedTaskId, setSelectedTaskId] = useState(item.parentTaskId || '');
   const [notifyAssignees, setNotifyAssignees] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -657,29 +760,34 @@ const EditorModal = ({ item, projects, onClose, onSaveProject, onSaveTask, onDel
       const assignees = assigneesStr.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       
       if (!title.trim()) {
-        setErrorMessage('O título da tarefa é obrigatório.');
+        setErrorMessage(`O título da ${isSubtask ? 'subtarefa' : 'tarefa'} é obrigatório.`);
         return;
       }
       
       if (assignees.length === 0) {
-        setErrorMessage('A tarefa deve ter pelo menos um responsável atribuído.');
+        setErrorMessage(`A ${isSubtask ? 'subtarefa' : 'tarefa'} deve ter pelo menos um responsável atribuído.`);
         return;
       }
       
       if (!forecastDate) {
-        setErrorMessage('A tarefa deve ter uma data de previsão (Previsão Entrega).');
+        setErrorMessage(`A ${isSubtask ? 'subtarefa' : 'tarefa'} deve ter uma data de previsão (Previsão Entrega).`);
         return;
       }
       
       if (!objective.trim()) {
-        setErrorMessage('O objetivo da tarefa deve ser descrito.');
+        setErrorMessage(`O objetivo da ${isSubtask ? 'subtarefa' : 'tarefa'} deve ser descrito.`);
         return;
       }
 
       const newHistoryEntry = newUpdateContent ? { user: newUpdateUser, content: newUpdateContent } : undefined;
-      onSaveTask(selectedProjectId, { id: data.id, title, startDate, forecastDate, endDate, assignees, riskLevel, updates, objective, status, newHistoryEntry });
       
-      if (notifyAssignees) {
+      if (isSubtask) {
+        onSaveSubtask(selectedTaskId || data.taskId, { id: data.id, title, startDate, forecastDate, endDate, assignees, riskLevel, updates, objective, status, newHistoryEntry });
+      } else {
+        onSaveTask(selectedProjectId, { id: data.id, title, startDate, forecastDate, endDate, assignees, riskLevel, updates, objective, status, newHistoryEntry });
+      }
+      
+      if (notifyAssignees && !isSubtask) {
         const project = projects.find((p: any) => p.id === selectedProjectId);
         const projectName = project ? project.title : 'Projeto';
         const targetDate = endDate || forecastDate;
@@ -714,7 +822,7 @@ Por favor, em caso de dúvidas fale comigo.`);
   return (
     <View style={styles.modalOverlay}>
       <View style={styles.modalContent}>
-        <Text style={styles.modalHeader}>{item.isNew ? 'Criar' : 'Editar'} {isProject ? 'Projeto' : 'Tarefa'}</Text>
+        <Text style={styles.modalHeader}>{item.isNew ? 'Criar' : 'Editar'} {isProject ? 'Projeto' : isTask ? 'Tarefa' : 'Subtarefa'}</Text>
         
         {errorMessage ? (
           <View style={{backgroundColor: 'var(--danger-bg)', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: 'var(--danger)'}}>
@@ -729,7 +837,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                style={styles.webInput} 
                value={title} 
                onChange={(e) => setTitle(e.target.value)} 
-               placeholder={`Nome d${isProject ? 'o projeto' : 'a tarefa'}`} 
+               placeholder={`Nome d${isProject ? 'o projeto' : isTask ? 'a tarefa' : 'a subtarefa'}`} 
              />
           </TouchableOpacity>
 
@@ -778,7 +886,7 @@ Por favor, em caso de dúvidas fale comigo.`);
 
           {!isProject && (
             <>
-              {item.isNew && projects?.length > 0 && (
+              {item.isNew && isTask && projects?.length > 0 && (
                 <>
                   <Text style={styles.label}>Projeto</Text>
                   <TouchableOpacity style={{backgroundColor: 'transparent'}}>
@@ -965,7 +1073,7 @@ Por favor, em caso de dúvidas fale comigo.`);
            {(!item.isNew) && (
              <TouchableOpacity 
                style={styles.deleteButton} 
-               onPress={() => isProject ? onDeleteProject(data.id) : onDeleteTask(data.id)}
+               onPress={() => isProject ? onDeleteProject(data.id) : isTask ? onDeleteTask(data.id) : onDeleteSubtask(data.id)}
              >
                <Text style={styles.deleteButtonText}>Excluir</Text>
              </TouchableOpacity>
@@ -998,11 +1106,16 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
   };
 
   // Flatten rendering rows so left and right render identically
-  type RenderRow = { type: 'project', data: Project } | { type: 'task', data: Task };
+  type RenderRow = { type: 'project', data: Project } | { type: 'task', data: Task } | { type: 'subtask', data: Subtask, parentTaskId: string };
   const rows: RenderRow[] = [];
   projects.forEach(p => {
     rows.push({ type: 'project', data: p });
-    p.tasks.forEach(t => rows.push({ type: 'task', data: t }));
+    p.tasks.forEach(t => {
+      rows.push({ type: 'task', data: t });
+      if (t.subtasks && t.subtasks.length > 0) {
+        t.subtasks.forEach(st => rows.push({ type: 'subtask', data: st, parentTaskId: t.id }));
+      }
+    });
   });
 
   return (
@@ -1073,10 +1186,8 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
                   </Text>
                 </View>
               );
-            } else {
+            } else if (row.type === 'task') {
               const task = row.data as Task;
-              // Need reference to parent project ID to edit/delete properly if needed, but works without it for edits.
-              // Just finding the project ID here:
               const parentProject = projects.find(prj => prj.tasks.some(t => t.id === task.id));
               
               let riskColor = 'var(--primary)';
@@ -1087,7 +1198,10 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
                 <View key={`lt-${task.id}`} style={[styles.rowBase, styles.taskRow]}>
                   <TouchableOpacity style={{ flex: 2, paddingLeft: 16, flexDirection: 'row', alignItems: 'center' }} onPress={() => onTaskPress(task.id)}>
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor }]} />
-                    <Text style={[styles.cellText, styles.titleText]} numberOfLines={1}>{task.title}</Text>
+                    <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }]} numberOfLines={1}>{task.title}</Text>
+                    <TouchableOpacity onPress={() => onEditRequest({ type: 'subtask', isNew: true, parentTaskId: task.id })} style={{ padding: 2, backgroundColor: 'var(--bg-card)', borderRadius: 4, borderWidth: 1, borderColor: 'var(--border)' }}>
+                      <Text style={{ fontSize: 10, color: 'var(--text-secondary)' }}>+ Sub</Text>
+                    </TouchableOpacity>
                   </TouchableOpacity>
                   <Text style={[styles.cellText, styles.mutedText, { flex: 1.5 }]} numberOfLines={1}>{task.assignees.join(', ')}</Text>
                   
@@ -1105,6 +1219,39 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
                   </Text>
                   <Text style={[styles.cellText, { flex: 1, color: (task.endDate && task.forecastDate && new Date(task.endDate) > new Date(task.forecastDate)) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
                     {safeFormatDate(task.endDate)}
+                  </Text>
+                </View>
+              );
+            } else {
+              const subtask = row.data as Subtask;
+              const parentTaskId = (row as any).parentTaskId;
+              
+              let riskColor = 'var(--primary)';
+              if (subtask.riskLevel === 'MEDIUM') riskColor = '#F59E0B';
+              if (subtask.riskLevel === 'HIGH') riskColor = 'var(--danger)';
+
+              return (
+                <View key={`lst-${subtask.id}`} style={[styles.rowBase, styles.taskRow, { backgroundColor: 'var(--bg-card)' }]}>
+                  <TouchableOpacity style={{ flex: 2, paddingLeft: 32, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })}>
+                    <View style={[styles.inlineRiskDot, { backgroundColor: riskColor, width: 6, height: 6, opacity: 0.7 }]} />
+                    <Text style={[styles.cellText, styles.titleText, { fontSize: 12, color: 'var(--text-secondary)' }]} numberOfLines={1}>{subtask.title}</Text>
+                  </TouchableOpacity>
+                  <Text style={[styles.cellText, styles.mutedText, { flex: 1.5, fontSize: 11 }]} numberOfLines={1}>{subtask.assignees.join(', ')}</Text>
+                  
+                  <TouchableOpacity style={{ flex: 0.8, alignItems: 'center' }} onPress={() => onUpdateProgress(subtask.id, subtask.progress >= 100 ? 0 : subtask.progress + 25)}>
+                    <View style={[styles.progressBadge, { paddingHorizontal: 4, paddingVertical: 1 }]}>
+                      <Text style={[styles.progressText, { fontSize: 9 }]}>{subtask.progress}%</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: 'var(--text-secondary)' }]} numberOfLines={1}>
+                    {safeFormatDate(subtask.startDate)}
+                  </Text>
+                  <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: 'var(--text-secondary)' }]} numberOfLines={1}>
+                    {safeFormatDate(subtask.forecastDate)}
+                  </Text>
+                  <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: (subtask.endDate && subtask.forecastDate && new Date(subtask.endDate) > new Date(subtask.forecastDate)) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
+                    {safeFormatDate(subtask.endDate)}
                   </Text>
                 </View>
               );
@@ -1146,8 +1293,8 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
                   borderWidth: 1,
                 };
               } else {
-                let barColor = '#0BFD71'; // Green fallback
-                let areaColor = 'rgba(11, 253, 113, 0.2)';
+                let barColor = row.type === 'subtask' ? '#6EE7B7' : '#0BFD71'; // Green fallback (lighter for subtask)
+                let areaColor = row.type === 'subtask' ? 'rgba(110, 231, 183, 0.15)' : 'rgba(11, 253, 113, 0.2)';
                 let useGradient = true;
                 
                 if (data.progress === 100) {
@@ -1171,7 +1318,8 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
                   styles.rowBase, 
                   styles.timelineRow, 
                   row.type === 'project' && styles.projectTimelineRow,
-                  isLateProject && { backgroundColor: 'rgba(239, 68, 68, 0.05)' }
+                  isLateProject && { backgroundColor: 'rgba(239, 68, 68, 0.05)' },
+                  row.type === 'subtask' && { backgroundColor: 'var(--bg-card)' }
                 ]}>
                   {/* Background Grid Lines */}
                   <View style={[StyleSheet.absoluteFill, { flexDirection: 'row' }]}>
@@ -1186,7 +1334,8 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
                        style={[
                          styles.taskBlockContainer, 
                          { left: safeOffset * DAY_WIDTH, width: safeDuration * DAY_WIDTH },
-                         row.type === 'project' ? { top: 8, height: 24 } : {}
+                         row.type === 'project' ? { top: 8, height: 24 } : {},
+                         row.type === 'subtask' ? { top: 12, height: 16 } : {}
                        ]}
                      >
                        {row.type === 'project' ? (
@@ -1197,7 +1346,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
                           <View style={[styles.taskBlockArea, { backgroundColor: blockStyle.areaColor }]}>
                              {blockStyle.useGradient ? (
                                <LinearGradient 
-                                  colors={['#008744', '#005B2E']} 
+                                  colors={row.type === 'subtask' ? ['#059669', '#047857'] : ['#008744', '#005B2E']} 
                                   start={{x: 0, y: 0}} 
                                   end={{x: 1, y: 0}} 
                                   style={[styles.taskBlockProgress, { width: `${data.progress}%` }]} 
