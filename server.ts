@@ -175,6 +175,11 @@ async function startServer() {
   app.delete("/api/admin/users/:id", async (req, res) => {
     if (!supabaseAdmin) return res.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY não configurado." });
     try {
+      const { data: { user }, error: fetchError } = await supabaseAdmin.auth.admin.getUserById(req.params.id);
+      if (user && user.email === 'heder.santos@adarco.com.br') {
+        return res.status(403).json({ error: "O usuário administrador principal não pode ser excluído." });
+      }
+
       const { data, error } = await supabaseAdmin.auth.admin.deleteUser(req.params.id);
       if (error) throw error;
       res.json(data);
@@ -187,12 +192,21 @@ async function startServer() {
   app.post("/api/admin/users/:id/reset", async (req, res) => {
     if (!supabaseAdmin) return res.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY não configurado." });
     try {
-      const newPassword = "udarco" + Math.floor(Math.random() * 1000);
+      const newPassword = "123456";
       const { data, error } = await supabaseAdmin.auth.admin.updateUserById(req.params.id, {
         password: newPassword,
         user_metadata: { needs_password_change: true }
       });
       if (error) throw error;
+
+      // Simulação do envio de e-mail
+      console.log(`\n======================================`);
+      console.log(`[SIMULAÇÃO DE EMAIL] Enviando e-mail...`);
+      console.log(`Para: ${data.user.email}`);
+      console.log(`Assunto: Redefinição de Senha - Sistema Adarco`);
+      console.log(`Mensagem: Olá, sua senha foi resetada. Sua nova senha de acesso é: 123456. No seu primeiro acesso, será obrigatório realizar a troca da senha para uma de sua preferência.`);
+      console.log(`======================================\n`);
+
       res.json({ newPassword });
     } catch (e: any) {
       res.status(400).json({ error: e.message });

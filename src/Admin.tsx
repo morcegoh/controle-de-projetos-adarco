@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { Edit2, Trash2, KeyRound } from 'lucide-react';
+import { Edit2, Trash2, Key } from 'lucide-react';
 
 export default function AdminScreen() {
   const [activeTab, setActiveTab] = useState<'NEW' | 'LIST'>('NEW');
@@ -86,15 +86,26 @@ export default function AdminScreen() {
     }
   };
 
-  const resetPassword = async (id: string) => {
-    if (!window.confirm('Deseja resetar a senha deste usuário? Ele precisará trocar no próximo acesso.')) return;
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [resetUser, setResetUser] = useState<any | null>(null);
+
+  const confirmResetPassword = (user: any) => {
+    setResetUser(user);
+    setResetModalVisible(true);
+  };
+
+  const executeResetPassword = async () => {
+    if (!resetUser) return;
     try {
-      const response = await fetch(`/api/admin/users/${id}/reset`, { method: 'POST' });
+      const response = await fetch(`/api/admin/users/${resetUser.id}/reset`, { method: 'POST' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Erro ao resetar');
-      alert(`Senha resetada com sucesso! Nova senha temporária: ${data.newPassword}`);
+      alert('Senha resetada com sucesso! Um e-mail será enviado para o usuário.');
     } catch (e: any) {
       alert(e.message);
+    } finally {
+      setResetModalVisible(false);
+      setResetUser(null);
     }
   };
 
@@ -177,15 +188,40 @@ export default function AdminScreen() {
                   <Text style={[styles.tableCell, {flex: 2}]} numberOfLines={1}>{u.user_metadata?.full_name}</Text>
                   <Text style={[styles.tableCell, {flex: 2}]} numberOfLines={1}>{u.email}</Text>
                   <Text style={[styles.tableCell, {flex: 1}]} numberOfLines={1}>{u.user_metadata?.role}</Text>
-                  <View style={[styles.tableCell, {flex: 1, flexDirection: 'row', justifyContent: 'flex-end', gap: 12}]}>
-                     <TouchableOpacity onPress={() => setEditingUser(u)}><Edit2 size={16} color="var(--text-secondary)" /></TouchableOpacity>
-                     <TouchableOpacity onPress={() => resetPassword(u.id)}><KeyRound size={16} color="var(--warning)" /></TouchableOpacity>
-                     <TouchableOpacity onPress={() => deleteUser(u.id)}><Trash2 size={16} color="var(--danger)" /></TouchableOpacity>
+                  <View style={[styles.tableCell, {flex: 1, flexDirection: 'row', justifyContent: 'flex-end', minWidth: 80}]}>
+                     <TouchableOpacity onPress={() => setEditingUser(u)} style={{ marginLeft: 12 }}><Edit2 size={16} color="var(--text-secondary)" /></TouchableOpacity>
+                     <TouchableOpacity onPress={() => confirmResetPassword(u)} style={{ marginLeft: 12 }}><Key size={16} color="var(--warning)" /></TouchableOpacity>
+                     {u.email !== 'heder.santos@adarco.com.br' && (
+                       <TouchableOpacity onPress={() => deleteUser(u.id)} style={{ marginLeft: 12 }}><Trash2 size={16} color="var(--danger)" /></TouchableOpacity>
+                     )}
                   </View>
                 </View>
               ))}
             </View>
           )}
+        </View>
+      )}
+
+      {resetModalVisible && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.title}>Confirmar Reset de Senha</Text>
+            <Text style={styles.description}>
+              Deseja realmente resetar a senha do usuário <Text style={{fontWeight: 'bold'}}>{resetUser?.user_metadata?.full_name}</Text> ({resetUser?.email})?
+            </Text>
+            <Text style={styles.description}>
+              A senha será alterada para 123456 e ele precisará trocá-la no próximo acesso.
+            </Text>
+
+            <View style={{flexDirection: 'row', gap: 12, justifyContent: 'flex-end', marginTop: 16}}>
+              <TouchableOpacity style={[styles.button, {backgroundColor: 'transparent', borderWidth: 1, borderColor: 'var(--border)'}]} onPress={() => { setResetModalVisible(false); setResetUser(null); }}>
+                <Text style={[styles.buttonText, {color: 'var(--text-main)'}]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.button, {backgroundColor: 'var(--warning)'}]} onPress={executeResetPassword}>
+                <Text style={[styles.buttonText, {color: '#FFFFFF'}]}>Sim, Resetar Senha</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       )}
 

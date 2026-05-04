@@ -536,7 +536,7 @@ function App({ user }: { user: User }) {
                 </TouchableOpacity>
                 <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6 }} onPress={() => { setActiveTab('ADMIN'); setProfileMenuOpen(false); }}>
                   <Settings size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>Admin / Configuração</Text>
+                  <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>Configuração</Text>
                 </TouchableOpacity>
                 <View style={{ height: 1, backgroundColor: 'var(--border)', marginVertical: 4 }} />
                 <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6 }} onPress={() => { supabase.auth.signOut(); }}>

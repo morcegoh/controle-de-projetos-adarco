@@ -12,6 +12,7 @@
   --primary: #10B981;
   --danger: #EF4444;
   --danger-bg: #FEE2E2;
+  --warning: #F59E0B;
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-border: rgba(0, 0, 0, 0.1);
   --table-header-bg: #F8FAFC;
@@ -31,6 +32,7 @@
   --primary: #34D399;
   --danger: #EF4444;
   --danger-bg: #450a0a;
+  --warning: #F59E0B;
   --glass-bg: rgba(10, 26, 16, 0.8);
   --glass-border: rgba(52, 211, 153, 0.2);
   --table-header-bg: #030805;
