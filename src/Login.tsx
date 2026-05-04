@@ -1,16 +1,46 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from './supabase';
-import { Lock, Mail, ArrowRight } from 'lucide-react';
+import { Lock, Mail, ArrowRight, Eye, EyeOff, AlertTriangle } from 'lucide-react';
 import { useTheme } from './theme';
 
 export default function LoginScreen() {
   const { theme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLockOn, setCapsLockOn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.getModifierState && e.getModifierState('CapsLock')) {
+          setCapsLockOn(true);
+        } else {
+          setCapsLockOn(false);
+        }
+      };
+      
+      const handleKeyUp = (e: KeyboardEvent) => {
+        if (e.getModifierState && e.getModifierState('CapsLock')) {
+          setCapsLockOn(true);
+        } else {
+          setCapsLockOn(false);
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keyup', handleKeyUp);
+      
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
+      };
+    }
+  }, []);
 
   const submitLogin = async () => {
     if (!email || !password) {
@@ -88,13 +118,26 @@ export default function LoginScreen() {
               <Lock color="var(--text-muted)" size={20} style={styles.inputIcon} />
               <TextInput 
                 style={styles.input}
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 placeholder="••••••••"
                 placeholderTextColor="#94A3B8"
                 value={password}
                 onChange={(e) => setPassword(e.nativeEvent.text)}
               />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 12 }}>
+                {showPassword ? (
+                  <EyeOff color="var(--text-muted)" size={20} />
+                ) : (
+                  <Eye color="var(--text-muted)" size={20} />
+                )}
+              </TouchableOpacity>
             </View>
+            {capsLockOn && (
+              <View style={styles.capsLockWarning}>
+                <AlertTriangle color="var(--warning)" size={14} />
+                <Text style={styles.capsLockText}>Caps Lock ativado</Text>
+              </View>
+            )}
           </View>
 
           <TouchableOpacity style={styles.forgotPassword}>
@@ -245,6 +288,17 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'var(--danger)',
     fontSize: 14,
+    fontWeight: '500',
+  },
+  capsLockWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  capsLockText: {
+    color: 'var(--warning)',
+    fontSize: 12,
     fontWeight: '500',
   }
 });

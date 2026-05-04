@@ -85,9 +85,49 @@ async function startServer() {
   app.use(express.json());
 
   // -------------------------------------------------------------
+  // BOOTSTRAP DEFAULT ADMIN
+  // -------------------------------------------------------------
+  if (supabaseAdmin) {
+    try {
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers();
+      const adminExists = listData?.users?.find(u => u.email === 'heder.santos@adarco.com.br');
+      
+      if (!adminExists) {
+        await supabaseAdmin.auth.admin.createUser({
+          email: 'heder.santos@adarco.com.br',
+          password: '123456',
+          email_confirm: true,
+          user_metadata: {
+            full_name: 'Heder Santos (Admin)',
+            role: 'Admin',
+            needs_password_change: true
+          }
+        });
+        console.log("Usuário admin heder.santos@adarco.com.br criado com sucesso.");
+      }
+    } catch(e) {
+      console.error("Falha ao inicializar usuário admin: ", e);
+    }
+  }
+
+  // -------------------------------------------------------------
   // API ROUTES
   // -------------------------------------------------------------
   
+  // List Users (Admin Only)
+  app.get("/api/admin/users", async (req, res) => {
+    if (!supabaseAdmin) {
+      return res.status(500).json({ error: "O servidor não foi configurado com SUPABASE_SERVICE_ROLE_KEY." });
+    }
+    try {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers();
+      if (error) throw error;
+      res.json(data.users);
+    } catch (e: any) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
   // Create User (Admin Only)
   app.post("/api/admin/users", async (req, res) => {
     if (!supabaseAdmin) {
@@ -110,7 +150,50 @@ async function startServer() {
       });
 
       if (error) throw error;
+      res.json(data.user);
+    } catch (e: any) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // Update User (Admin Only)
+  app.put("/api/admin/users/:id", async (req, res) => {
+    if (!supabaseAdmin) return res.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY não configurado." });
+    const { fullName, role, phone } = req.body;
+    try {
+      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(req.params.id, {
+        user_metadata: { full_name: fullName, role, phone }
+      });
+      if (error) throw error;
+      res.json(data.user);
+    } catch (e: any) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // Delete User (Admin Only)
+  app.delete("/api/admin/users/:id", async (req, res) => {
+    if (!supabaseAdmin) return res.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY não configurado." });
+    try {
+      const { data, error } = await supabaseAdmin.auth.admin.deleteUser(req.params.id);
+      if (error) throw error;
       res.json(data);
+    } catch (e: any) {
+      res.status(400).json({ error: e.message });
+    }
+  });
+
+  // Reset Password (Admin Only)
+  app.post("/api/admin/users/:id/reset", async (req, res) => {
+    if (!supabaseAdmin) return res.status(500).json({ error: "SUPABASE_SERVICE_ROLE_KEY não configurado." });
+    try {
+      const newPassword = "udarco" + Math.floor(Math.random() * 1000);
+      const { data, error } = await supabaseAdmin.auth.admin.updateUserById(req.params.id, {
+        password: newPassword,
+        user_metadata: { needs_password_change: true }
+      });
+      if (error) throw error;
+      res.json({ newPassword });
     } catch (e: any) {
       res.status(400).json({ error: e.message });
     }
