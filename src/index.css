@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg-app: #F0FDF4;
+  --bg-card: #FFFFFF;
+  --text-main: #002A15;
+  --text-secondary: #475569;
+  --text-muted: #94A3B8;
+  --border: #E2E8F0;
+  --border-light: #F1F5F9;
+  --primary: #10B981;
+  --danger: #EF4444;
+  --danger-bg: #FEE2E2;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --table-header-bg: #F8FAFC;
+  --input-bg: #FFFFFF;
+  --modal-overlay: rgba(15, 23, 42, 0.4);
+  --shadow: rgba(0, 0, 0, 0.05);
+}
+
+.dark {
+  --bg-app: #000000;
+  --bg-card: #0A1A10;
+  --text-main: #F8FAFC;
+  --text-secondary: #E2E8F0;
+  --text-muted: #94A3B8;
+  --border: #1B2F23;
+  --border-light: #030805;
+  --primary: #34D399;
+  --danger: #EF4444;
+  --danger-bg: #450a0a;
+  --glass-bg: rgba(10, 26, 16, 0.8);
+  --glass-border: rgba(52, 211, 153, 0.2);
+  --table-header-bg: #030805;
+  --input-bg: #030805;
+  --modal-overlay: rgba(0, 0, 0, 0.8);
+  --shadow: rgba(0, 0, 0, 0.5);
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background-color: var(--bg-app); 
+  font-family: 'Montserrat', sans-serif;
+}
+
+
+/* Base styles to make RNW reset properly */
+#root {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
