@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, Touc
 import { LinearGradient } from 'expo-linear-gradient';
 import { addDays, format, differenceInDays, parseISO, startOfDay, isValid, getISOWeek, getYear, setISOWeek, setYear, startOfISOWeek, setWeek } from 'date-fns';
 
-import { Download, User as UserIcon, Settings, LogOut, Moon } from 'lucide-react';
+import { Download, User as UserIcon, Settings, LogOut, Moon, CornerDownRight } from 'lucide-react';
 import { ThemeProvider, useTheme } from './theme';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
@@ -258,6 +258,17 @@ function App({ user }: { user: User }) {
           const totalSubProgress = taskSubtasks.reduce((sum, st) => sum + (st.progress || 0), 0);
           const computedProgress = taskSubtasks.length > 0 ? Math.round(totalSubProgress / taskSubtasks.length) : (t.progress || 0);
           
+          let computedEndDate = t.end_date;
+          if (taskSubtasks.length > 0) {
+            const validEndDates = taskSubtasks.map(st => st.end_date).filter(Boolean);
+            if (validEndDates.length > 0) {
+              validEndDates.sort();
+              computedEndDate = validEndDates[validEndDates.length - 1];
+            } else {
+              computedEndDate = t.end_date;
+            }
+          }
+
           return {
             id: t.id,
             projectId: t.project_id,
@@ -266,7 +277,7 @@ function App({ user }: { user: User }) {
             progress: computedProgress,
             startDate: t.start_date,
             forecastDate: t.forecast_date,
-            endDate: t.end_date,
+            endDate: computedEndDate,
             status: t.status,
             riskLevel: t.risk_level,
             updates: t.updates,
@@ -289,8 +300,19 @@ function App({ user }: { user: User }) {
         });
 
         const totalProgress = tasksWithSubtasks.reduce((sum, t) => sum + t.progress, 0);
-        const avgProgress = tasksWithSubtasks.length > 0 ? Math.round(totalProgress / tasksWithSubtasks.length) : 0;
+        const avgProgress = tasksWithSubtasks.length > 0 ? Math.round(totalProgress / tasksWithSubtasks.length) : (p.progress || 0);
         
+        let computedProjectEndDate = p.end_date;
+        if (tasksWithSubtasks.length > 0) {
+          const validEndDates = tasksWithSubtasks.map(t => t.endDate).filter(Boolean);
+          if (validEndDates.length > 0) {
+            validEndDates.sort();
+            computedProjectEndDate = validEndDates[validEndDates.length - 1];
+          } else {
+            computedProjectEndDate = p.end_date;
+          }
+        }
+
         return {
           id: p.id,
           title: p.title,
@@ -299,7 +321,7 @@ function App({ user }: { user: User }) {
           progress: avgProgress,
           startDate: p.start_date,
           forecastDate: p.forecast_date,
-          endDate: p.end_date,
+          endDate: computedProjectEndDate,
           status: p.status,
           tasks: tasksWithSubtasks
         };
@@ -430,6 +452,79 @@ function App({ user }: { user: User }) {
       setEditingItem(null);
       fetchProjects();
     } catch (e) { console.error('Delete subtask error:', e); }
+  };
+
+  const handleConvertTaskToSubtask = async (taskId: string, parentTaskId: string) => {
+    try {
+      const { count: subtasksCount, error: countErr } = await supabase.from('subtasks').select('*', { count: 'exact', head: true }).eq('task_id', taskId);
+      if (countErr) throw countErr;
+      if (subtasksCount !== null && subtasksCount > 0) {
+        alert('Não é possível converter esta tarefa porque ela já possui subtarefas. Exclua ou mova as subtarefas primeiro.');
+        return;
+      }
+
+      const { data: taskData, error: fetchError } = await supabase.from('tasks').select('*').eq('id', taskId).single();
+      if (fetchError) throw fetchError;
+      
+      const subtaskPayload = {
+        task_id: parentTaskId,
+        title: taskData.title,
+        assignees: taskData.assignees,
+        start_date: taskData.start_date,
+        forecast_date: taskData.forecast_date,
+        end_date: taskData.end_date,
+        status: taskData.status,
+        risk_level: taskData.risk_level,
+        updates: taskData.updates,
+        objective: taskData.objective,
+        progress: taskData.progress
+      };
+      
+      const { error: insertError } = await supabase.from('subtasks').insert([subtaskPayload]);
+      if (insertError) throw insertError;
+      
+      const { error: deleteError } = await supabase.from('tasks').delete().eq('id', taskId);
+      if (deleteError) throw deleteError;
+      
+      setEditingItem(null);
+      fetchProjects();
+    } catch (e: any) { 
+        console.error('Convert task error:', e); 
+        alert('Erro ao converter: ' + JSON.stringify(e));
+    }
+  };
+
+  const handleConvertSubtaskToTask = async (subtaskId: string, parentProjectId: string) => {
+    try {
+      const { data: subtaskData, error: fetchError } = await supabase.from('subtasks').select('*').eq('id', subtaskId).single();
+      if (fetchError) throw fetchError;
+      
+      const taskPayload = {
+        project_id: parentProjectId,
+        title: subtaskData.title,
+        assignees: subtaskData.assignees,
+        start_date: subtaskData.start_date,
+        forecast_date: subtaskData.forecast_date,
+        end_date: subtaskData.end_date,
+        status: subtaskData.status,
+        risk_level: subtaskData.risk_level,
+        updates: subtaskData.updates,
+        objective: subtaskData.objective,
+        progress: subtaskData.progress
+      };
+      
+      const { error: insertError } = await supabase.from('tasks').insert([taskPayload]);
+      if (insertError) throw insertError;
+      
+      const { error: deleteError } = await supabase.from('subtasks').delete().eq('id', subtaskId);
+      if (deleteError) throw deleteError;
+      
+      setEditingItem(null);
+      fetchProjects();
+    } catch (e: any) { 
+        console.error('Convert subtask error:', e); 
+        alert('Erro ao converter: ' + JSON.stringify(e));
+    }
   };
 
   const handleUpdateSubtaskProgress = async (subtaskId: string, newProgress: number) => {
@@ -570,14 +665,14 @@ function App({ user }: { user: User }) {
           <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
             <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 14}}>Timeline:</Text>
             <select 
-              style={{...styles.webInput, marginBottom: 0, paddingVertical: 6, width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)'} as any}
+              style={{ ...webInputDOMStyle, marginBottom: 0, paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
               value={filterYear}
               onChange={(e) => setFilterYear(Number(e.target.value))}
             >
               {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
             </select>
             <select
-              style={{...styles.webInput, marginBottom: 0, paddingVertical: 6, width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)'} as any}
+              style={{ ...webInputDOMStyle, marginBottom: 0, paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
               value={filterWeek}
               onChange={(e) => setFilterWeek(Number(e.target.value))}
             >
@@ -674,6 +769,7 @@ function App({ user }: { user: User }) {
             projects={processedProjects} 
             timelineStart={timelineStart}
             onUpdateProgress={handleUpdateProgress} 
+            onUpdateSubtaskProgress={handleUpdateSubtaskProgress}
             onEditRequest={setEditingItem}
             onTaskPress={handleTaskClickGantt}
           />
@@ -698,6 +794,8 @@ function App({ user }: { user: User }) {
           onDeleteProject={handleDeleteProject}
           onDeleteTask={handleDeleteTask}
           onDeleteSubtask={handleDeleteSubtask}
+          onConvertTaskToSubtask={handleConvertTaskToSubtask}
+          onConvertSubtaskToTask={handleConvertSubtaskToTask}
         />
       )}
     </View>
@@ -707,7 +805,25 @@ function App({ user }: { user: User }) {
 // -------------------------------------------------------------
 // EDITOR MODAL COMPONENT
 // -------------------------------------------------------------
-const EditorModal = ({ item, projects, onClose, onSaveProject, onSaveTask, onSaveSubtask, onDeleteProject, onDeleteTask, onDeleteSubtask }: any) => {
+const webInputDOMStyle = {
+  width: '100%',
+  backgroundColor: 'var(--table-header-bg)',
+  borderColor: 'var(--border)',
+  borderWidth: '1px',
+  borderStyle: 'solid',
+  borderRadius: '8px',
+  paddingLeft: '16px',
+  paddingRight: '16px',
+  paddingTop: '12px',
+  paddingBottom: '12px',
+  color: 'var(--text-main)',
+  fontSize: '14px',
+  fontFamily: 'Inter, sans-serif',
+  outline: 'none',
+  boxSizing: 'border-box' as const,
+};
+
+const EditorModal = ({ item, projects, onClose, onSaveProject, onSaveTask, onSaveSubtask, onDeleteProject, onDeleteTask, onDeleteSubtask, onConvertTaskToSubtask, onConvertSubtaskToTask }: any) => {
   const isProject = item.type === 'project';
   const isTask = item.type === 'task';
   const isSubtask = item.type === 'subtask';
@@ -728,8 +844,11 @@ const EditorModal = ({ item, projects, onClose, onSaveProject, onSaveTask, onSav
   const [newUpdateUser, setNewUpdateUser] = useState('Heder Santos');
   const [selectedProjectId, setSelectedProjectId] = useState(item.parentProjectId || (projects?.length > 0 ? projects[0].id : ''));
   const [selectedTaskId, setSelectedTaskId] = useState(item.parentTaskId || '');
+  const [selectedConvertParentId, setSelectedConvertParentId] = useState('');
+  const [selectedConvertProjectId, setSelectedConvertProjectId] = useState(projects?.length > 0 ? projects[0].id : '');
   const [notifyAssignees, setNotifyAssignees] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleSave = () => {
     setErrorMessage('');
@@ -834,7 +953,7 @@ Por favor, em caso de dúvidas fale comigo.`);
           <Text style={styles.label}>Título</Text>
           <TouchableOpacity style={{backgroundColor: 'transparent'}}>
              <input 
-               style={styles.webInput} 
+               style={webInputDOMStyle} 
                value={title} 
                onChange={(e) => setTitle(e.target.value)} 
                placeholder={`Nome d${isProject ? 'o projeto' : isTask ? 'a tarefa' : 'a subtarefa'}`} 
@@ -848,7 +967,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                   <Text style={styles.label}>Departamento</Text>
                   <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                      <input 
-                       style={styles.webInput} 
+                       style={webInputDOMStyle} 
                        value={department} 
                        onChange={(e) => setDepartment(e.target.value)} 
                        placeholder="Ex: Comercial, TI..." 
@@ -859,7 +978,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                   <Text style={styles.label}>Responsável</Text>
                   <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                      <input 
-                       style={styles.webInput} 
+                       style={webInputDOMStyle} 
                        value={owner} 
                        onChange={(e) => setOwner(e.target.value)} 
                        placeholder="Nome do Responsável..." 
@@ -871,7 +990,7 @@ Por favor, em caso de dúvidas fale comigo.`);
               <Text style={styles.label}>Status do Projeto</Text>
               <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                  <select 
-                   style={styles.webInput} 
+                   style={webInputDOMStyle} 
                    value={status} 
                    onChange={(e) => setStatus(e.target.value)}
                  >
@@ -891,7 +1010,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                   <Text style={styles.label}>Projeto</Text>
                   <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                     <select 
-                      style={styles.webInput} 
+                      style={webInputDOMStyle} 
                       value={selectedProjectId} 
                       onChange={(e) => setSelectedProjectId(e.target.value)}
                     >
@@ -906,7 +1025,7 @@ Por favor, em caso de dúvidas fale comigo.`);
               <Text style={styles.label}>Atribuído Para (Separado por vírgula)</Text>
               <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                  <input 
-                   style={styles.webInput} 
+                   style={webInputDOMStyle} 
                    value={assigneesStr} 
                    onChange={(e) => setAssigneesStr(e.target.value)} 
                    placeholder="João, Maria" 
@@ -942,7 +1061,7 @@ Por favor, em caso de dúvidas fale comigo.`);
               <Text style={styles.label}>Status</Text>
               <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                  <select 
-                   style={styles.webInput} 
+                   style={webInputDOMStyle} 
                    value={status} 
                    onChange={(e) => setStatus(e.target.value)}
                  >
@@ -956,7 +1075,7 @@ Por favor, em caso de dúvidas fale comigo.`);
               <Text style={styles.label}>Objetivo da Tarefa</Text>
               <TouchableOpacity style={{backgroundColor: 'transparent', height: 80, marginBottom: 12}}>
                  <textarea 
-                   style={{ ...(styles.webInput as object), height: '100%', resize: 'none' } as any} 
+                   style={{ ...webInputDOMStyle, height: '100%', resize: 'none' }} 
                    value={objective} 
                    onChange={(e) => setObjective(e.target.value)} 
                    placeholder="Descreva o que a tarefa deve resolver..." 
@@ -966,7 +1085,7 @@ Por favor, em caso de dúvidas fale comigo.`);
               <Text style={styles.label}>Anotações Gerais</Text>
               <TouchableOpacity style={{backgroundColor: 'transparent', height: 80, marginBottom: 20}}>
                  <textarea 
-                   style={{ ...(styles.webInput as object), height: '100%', resize: 'none' } as any} 
+                   style={{ ...webInputDOMStyle, height: '100%', resize: 'none' }} 
                    value={updates} 
                    onChange={(e) => setUpdates(e.target.value)} 
                    placeholder="Destaques, bloqueios ou informações..." 
@@ -980,7 +1099,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                   <Text style={[styles.label, { fontSize: 12}]}>Seu Nome</Text>
                   <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                     <input 
-                      style={Object.assign({}, styles.webInput, { paddingVertical: 8, fontSize: 12 })} 
+                      style={{ ...webInputDOMStyle, paddingTop: '8px', paddingBottom: '8px', fontSize: '12px' }} 
                       value={newUpdateUser} 
                       onChange={(e) => setNewUpdateUser(e.target.value)} 
                       placeholder="Nome..." 
@@ -991,7 +1110,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                   <Text style={[styles.label, { fontSize: 12}]}>Nova Atualização</Text>
                   <TouchableOpacity style={{backgroundColor: 'transparent', height: 40}}>
                     <input 
-                      style={Object.assign({}, styles.webInput, { paddingVertical: 8, fontSize: 12 })} 
+                      style={{ ...webInputDOMStyle, paddingTop: '8px', paddingBottom: '8px', fontSize: '12px' }} 
                       value={newUpdateContent} 
                       onChange={(e) => setNewUpdateContent(e.target.value)} 
                       placeholder="Descreva o que mudou..." 
@@ -1017,14 +1136,14 @@ Por favor, em caso de dúvidas fale comigo.`);
             </>
           )}
 
-          <View style={{ flexDirection: 'row', gap: 16 }}>
+          <View style={{ flexDirection: 'row', gap: 16, marginBottom: 16 }}>
             {isProject && (
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>Data de Início</Text>
                 <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                    <input 
                      type="date"
-                     style={styles.webInput} 
+                     style={webInputDOMStyle} 
                      value={startDate} 
                      onChange={(e) => setStartDate(e.target.value)} 
                    />
@@ -1036,7 +1155,7 @@ Por favor, em caso de dúvidas fale comigo.`);
               <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                  <input 
                    type="date"
-                   style={styles.webInput} 
+                   style={webInputDOMStyle} 
                    value={forecastDate} 
                    onChange={(e) => setForecastDate(e.target.value)} 
                  />
@@ -1048,43 +1167,128 @@ Por favor, em caso de dúvidas fale comigo.`);
                 <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                    <input 
                      type="date"
-                     style={styles.webInput} 
+                     style={webInputDOMStyle} 
                      value={endDate} 
                      onChange={(e) => setEndDate(e.target.value)} 
                    />
                 </TouchableOpacity>
               </View>
             )}
+          </View>
 
-            {!isProject && (
-              <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 10, padding: 12, backgroundColor: 'rgba(0, 91, 46, 0.05)', borderRadius: 8}}>
-                <TouchableOpacity onPress={() => setNotifyAssignees(!notifyAssignees)} style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                  <View style={{width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: 'var(--primary)', alignItems: 'center', justifyContent: 'center', backgroundColor: notifyAssignees ? 'var(--primary)' : 'transparent'}}>
-                    {notifyAssignees && <View style={{width: 10, height: 10, backgroundColor: 'var(--bg-card)', borderRadius: 2}} />}
+          {!isProject && (
+            <View style={{flexDirection: 'row', alignItems: 'center', marginTop: 10, padding: 12, backgroundColor: 'rgba(0, 91, 46, 0.05)', borderRadius: 8}}>
+              <TouchableOpacity onPress={() => setNotifyAssignees(!notifyAssignees)} style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                <View style={{width: 20, height: 20, borderRadius: 4, borderWidth: 1, borderColor: 'var(--primary)', alignItems: 'center', justifyContent: 'center', backgroundColor: notifyAssignees ? 'var(--primary)' : 'transparent'}}>
+                  {notifyAssignees && <View style={{width: 10, height: 10, backgroundColor: 'var(--bg-card)', borderRadius: 2}} />}
+                </View>
+                <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: '600'}}>Notificar responsáveis por e-mail após salvar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {!isProject && !item.isNew && (
+              <View style={{ marginTop: 24, padding: 16, backgroundColor: 'var(--bg-hover)', borderRadius: 8, borderWidth: 1, borderColor: 'var(--border)' }}>
+                <Text style={[styles.label, { marginBottom: 12, color: 'var(--text-main)' }]}>Configurações de Hierarquia</Text>
+                
+                {isTask && (
+                  <View>
+                    <Text style={[styles.label, { fontSize: 12 }]}>Transformar em Subtarefa de:</Text>
+                    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                       <select 
+                         style={{ ...webInputDOMStyle, flex: 1, marginBottom: 0, padding: '8px' }} 
+                         value={selectedConvertParentId} 
+                         onChange={(e) => setSelectedConvertParentId(e.target.value)}
+                       >
+                         <option value="">Selecione a Tarefa Pai...</option>
+                         {(projects.find((p: any) => p.id === data.projectId)?.tasks || []).filter((t: any) => t.id !== data.id).map((t: any) => (
+                           <option key={t.id} value={t.id}>{t.title}</option>
+                         ))}
+                       </select>
+                       <TouchableOpacity 
+                         style={[styles.saveButton, { paddingHorizontal: 12, paddingVertical: 10, alignSelf: 'stretch', justifyContent: 'center', opacity: selectedConvertParentId ? 1 : 0.5 }]} 
+                         onPress={() => {
+                           if (selectedConvertParentId && onConvertTaskToSubtask) {
+                             onConvertTaskToSubtask(data.id, selectedConvertParentId);
+                           }
+                         }}
+                         disabled={!selectedConvertParentId}
+                       >
+                         <Text style={styles.saveButtonText}>Mover</Text>
+                       </TouchableOpacity>
+                    </View>
                   </View>
-                  <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: '600'}}>Notificar responsáveis por e-mail após salvar</Text>
-                </TouchableOpacity>
+                )}
+
+                {isSubtask && (
+                  <View>
+                    <Text style={[styles.label, { fontSize: 12 }]}>Transformar em Tarefa Principal de:</Text>
+                    <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                       <select 
+                         style={{ ...webInputDOMStyle, flex: 1, marginBottom: 0, padding: '8px' }} 
+                         value={selectedConvertProjectId} 
+                         onChange={(e) => setSelectedConvertProjectId(e.target.value)}
+                       >
+                         <option value="">Selecione o Projeto...</option>
+                         {projects.map((p: any) => (
+                           <option key={p.id} value={p.id}>{p.title}</option>
+                         ))}
+                       </select>
+                       <TouchableOpacity 
+                         style={[styles.saveButton, { paddingHorizontal: 12, paddingVertical: 10, alignSelf: 'stretch', justifyContent: 'center', opacity: selectedConvertProjectId ? 1 : 0.5 }]} 
+                         onPress={() => {
+                           if (selectedConvertProjectId && onConvertSubtaskToTask) {
+                             onConvertSubtaskToTask(data.id, selectedConvertProjectId);
+                           }
+                         }}
+                         disabled={!selectedConvertProjectId}
+                       >
+                         <Text style={styles.saveButtonText}>Converter</Text>
+                       </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
-          </View>
         </ScrollView>
 
         <View style={styles.modalFooter}>
-           {(!item.isNew) && (
-             <TouchableOpacity 
-               style={styles.deleteButton} 
-               onPress={() => isProject ? onDeleteProject(data.id) : isTask ? onDeleteTask(data.id) : onDeleteSubtask(data.id)}
-             >
-               <Text style={styles.deleteButtonText}>Excluir</Text>
-             </TouchableOpacity>
+           {showDeleteConfirm ? (
+             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+               <Text style={{ color: 'var(--danger)', fontSize: 13, fontWeight: '600', flex: 1, minWidth: 200 }}>
+                 Tem certeza? Esta ação não pode ser desfeita.
+               </Text>
+               <View style={{ flexDirection: 'row', gap: 12 }}>
+                 <TouchableOpacity style={styles.cancelButton} onPress={() => setShowDeleteConfirm(false)}>
+                   <Text style={styles.cancelButtonText}>Manter</Text>
+                 </TouchableOpacity>
+                 <TouchableOpacity 
+                   style={[styles.deleteButton, { backgroundColor: 'var(--danger-bg)' }]} 
+                   onPress={() => isProject ? onDeleteProject(data.id) : isTask ? onDeleteTask(data.id) : onDeleteSubtask(data.id)}
+                 >
+                   <Text style={[styles.deleteButtonText, { color: 'var(--danger)' }]}>Sim, Excluir</Text>
+                 </TouchableOpacity>
+               </View>
+             </View>
+           ) : (
+             <>
+               {(!item.isNew) && (
+                 <TouchableOpacity 
+                   style={styles.deleteButton} 
+                   onPress={() => setShowDeleteConfirm(true)}
+                 >
+                   <Text style={styles.deleteButtonText}>Excluir</Text>
+                 </TouchableOpacity>
+               )}
+               <View style={{ flex: 1 }} />
+               <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+                 <Text style={styles.cancelButtonText}>Cancelar</Text>
+               </TouchableOpacity>
+               <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+                 <Text style={styles.saveButtonText}>Salvar</Text>
+               </TouchableOpacity>
+             </>
            )}
-           <View style={{ flex: 1 }} />
-           <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-             <Text style={styles.cancelButtonText}>Cancelar</Text>
-           </TouchableOpacity>
-           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-             <Text style={styles.saveButtonText}>Salvar</Text>
-           </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -1094,7 +1298,7 @@ Por favor, em caso de dúvidas fale comigo.`);
 // -------------------------------------------------------------
 // GANTT VIEW COMPONENT
 // -------------------------------------------------------------
-const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, onTaskPress }: { projects: Project[], timelineStart: Date, onUpdateProgress: (id: string, p: number) => void, onEditRequest: any, onTaskPress: (id: string) => void }) => {
+const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskProgress, onEditRequest, onTaskPress }: { projects: Project[], timelineStart: Date, onUpdateProgress: (id: string, p: number) => void, onUpdateSubtaskProgress: (id: string, p: number) => void, onEditRequest: any, onTaskPress: (id: string) => void }) => {
   // Generate Days Header
   const daysArray = Array.from({ length: TIMELINE_DAYS }).map((_, i) => addDays(timelineStart, i));
 
@@ -1196,7 +1400,8 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
 
               return (
                 <View key={`lt-${task.id}`} style={[styles.rowBase, styles.taskRow]}>
-                  <TouchableOpacity style={{ flex: 2, paddingLeft: 16, flexDirection: 'row', alignItems: 'center' }} onPress={() => onTaskPress(task.id)}>
+                  <TouchableOpacity style={{ flex: 2, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onTaskPress(task.id)}>
+                    <CornerDownRight size={14} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor }]} />
                     <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }]} numberOfLines={1}>{task.title}</Text>
                     <TouchableOpacity onPress={() => onEditRequest({ type: 'subtask', isNew: true, parentTaskId: task.id })} style={{ padding: 2, backgroundColor: 'var(--bg-card)', borderRadius: 4, borderWidth: 1, borderColor: 'var(--border)' }}>
@@ -1232,13 +1437,14 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onEditRequest, o
 
               return (
                 <View key={`lst-${subtask.id}`} style={[styles.rowBase, styles.taskRow, { backgroundColor: 'var(--bg-card)' }]}>
-                  <TouchableOpacity style={{ flex: 2, paddingLeft: 32, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })}>
+                  <TouchableOpacity style={{ flex: 2, paddingLeft: 56, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })}>
+                    <CornerDownRight size={12} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor, width: 6, height: 6, opacity: 0.7 }]} />
                     <Text style={[styles.cellText, styles.titleText, { fontSize: 12, color: 'var(--text-secondary)' }]} numberOfLines={1}>{subtask.title}</Text>
                   </TouchableOpacity>
                   <Text style={[styles.cellText, styles.mutedText, { flex: 1.5, fontSize: 11 }]} numberOfLines={1}>{subtask.assignees.join(', ')}</Text>
                   
-                  <TouchableOpacity style={{ flex: 0.8, alignItems: 'center' }} onPress={() => onUpdateProgress(subtask.id, subtask.progress >= 100 ? 0 : subtask.progress + 25)}>
+                  <TouchableOpacity style={{ flex: 0.8, alignItems: 'center' }} onPress={() => onUpdateSubtaskProgress(subtask.id, subtask.progress >= 100 ? 0 : subtask.progress + 25)}>
                     <View style={[styles.progressBadge, { paddingHorizontal: 4, paddingVertical: 1 }]}>
                       <Text style={[styles.progressText, { fontSize: 9 }]}>{subtask.progress}%</Text>
                     </View>

@@ -130,7 +130,7 @@ export default function AdminScreen() {
   }
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: 'var(--bg-app)' }} contentContainerStyle={styles.container}>
+    <ScrollView style={styles.outerContainer} contentContainerStyle={styles.container}>
       <Text style={styles.title}>Painel Admin</Text>
       
       <View style={styles.tabsContainer}>
@@ -152,19 +152,19 @@ export default function AdminScreen() {
           {message ? <Text style={styles.successText}>{message}</Text> : null}
 
           <Text style={styles.label}>Nome Completo</Text>
-          <TextInput style={styles.input} value={fullName} onChange={(e) => setFullName(e.nativeEvent.text)} />
+          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} />
 
           <Text style={styles.label}>E-mail</Text>
-          <TextInput style={styles.input} keyboardType="email-address" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.nativeEvent.text)} />
+          <TextInput style={styles.input} keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
 
           <Text style={styles.label}>Cargo</Text>
-          <TextInput style={styles.input} value={role} onChange={(e) => setRole(e.nativeEvent.text)} />
+          <TextInput style={styles.input} value={role} onChangeText={setRole} />
 
           <Text style={styles.label}>Telefone</Text>
-          <TextInput style={styles.input} keyboardType="phone-pad" value={phone} onChange={(e) => setPhone(e.nativeEvent.text)} />
+          <TextInput style={styles.input} keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
 
           <TouchableOpacity style={styles.button} onPress={submitNewUser} disabled={loadingNew}>
-            {loadingNew ? <ActivityIndicator color="var(--bg-card)" /> : <Text style={styles.buttonText}>Gerar Acesso</Text>}
+            {loadingNew ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Gerar Acesso</Text>}
           </TouchableOpacity>
         </View>
       )}
@@ -172,7 +172,7 @@ export default function AdminScreen() {
       {activeTab === 'LIST' && (
         <View style={[styles.card, { width: 800 }]}>
           {loadingList ? (
-            <ActivityIndicator color="var(--primary)" />
+            <ActivityIndicator color="#005B2E" />
           ) : errorList ? (
             <Text style={styles.errorText}>{errorList}</Text>
           ) : (
@@ -189,10 +189,10 @@ export default function AdminScreen() {
                   <Text style={[styles.tableCell, {flex: 2}]} numberOfLines={1}>{u.email}</Text>
                   <Text style={[styles.tableCell, {flex: 1}]} numberOfLines={1}>{u.user_metadata?.role}</Text>
                   <View style={[styles.tableCell, {flex: 1, flexDirection: 'row', justifyContent: 'flex-end', minWidth: 80}]}>
-                     <TouchableOpacity onPress={() => setEditingUser(u)} style={{ marginLeft: 12 }}><Edit2 size={16} color="var(--text-secondary)" /></TouchableOpacity>
-                     <TouchableOpacity onPress={() => confirmResetPassword(u)} style={{ marginLeft: 12 }}><Key size={16} color="var(--warning)" /></TouchableOpacity>
+                     <TouchableOpacity onPress={() => setEditingUser(u)} style={{ marginLeft: 12 }}><Edit2 size={16} color="#64748B" /></TouchableOpacity>
+                     <TouchableOpacity onPress={() => confirmResetPassword(u)} style={{ marginLeft: 12 }}><Key size={16} color="#F59E0B" /></TouchableOpacity>
                      {u.email !== 'heder.santos@adarco.com.br' && (
-                       <TouchableOpacity onPress={() => deleteUser(u.id)} style={{ marginLeft: 12 }}><Trash2 size={16} color="var(--danger)" /></TouchableOpacity>
+                       <TouchableOpacity onPress={() => deleteUser(u.id)} style={{ marginLeft: 12 }}><Trash2 size={16} color="#EF4444" /></TouchableOpacity>
                      )}
                   </View>
                 </View>
@@ -214,11 +214,11 @@ export default function AdminScreen() {
             </Text>
 
             <View style={{flexDirection: 'row', gap: 12, justifyContent: 'flex-end', marginTop: 16}}>
-              <TouchableOpacity style={[styles.button, {backgroundColor: 'transparent', borderWidth: 1, borderColor: 'var(--border)'}]} onPress={() => { setResetModalVisible(false); setResetUser(null); }}>
-                <Text style={[styles.buttonText, {color: 'var(--text-main)'}]}>Cancelar</Text>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => { setResetModalVisible(false); setResetUser(null); }}>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, {backgroundColor: 'var(--warning)'}]} onPress={executeResetPassword}>
-                <Text style={[styles.buttonText, {color: '#FFFFFF'}]}>Sim, Resetar Senha</Text>
+              <TouchableOpacity style={[styles.button, {backgroundColor: '#F59E0B', marginTop: 0}]} onPress={executeResetPassword}>
+                <Text style={[styles.buttonText, {color: '#FFFFFF'}]}>Sim, Resetar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -234,28 +234,28 @@ export default function AdminScreen() {
             <TextInput 
               style={styles.input} 
               value={editingUser.user_metadata?.full_name || ''} 
-              onChange={(e) => setEditingUser({...editingUser, user_metadata: {...editingUser.user_metadata, full_name: e.nativeEvent.text}})} 
+              onChangeText={(text) => setEditingUser({...editingUser, user_metadata: {...editingUser.user_metadata, full_name: text}})} 
             />
 
             <Text style={styles.label}>Cargo</Text>
             <TextInput 
               style={styles.input} 
               value={editingUser.user_metadata?.role || ''} 
-              onChange={(e) => setEditingUser({...editingUser, user_metadata: {...editingUser.user_metadata, role: e.nativeEvent.text}})} 
+              onChangeText={(text) => setEditingUser({...editingUser, user_metadata: {...editingUser.user_metadata, role: text}})} 
             />
             
             <Text style={styles.label}>Telefone</Text>
             <TextInput 
               style={styles.input} 
               value={editingUser.user_metadata?.phone || ''} 
-              onChange={(e) => setEditingUser({...editingUser, user_metadata: {...editingUser.user_metadata, phone: e.nativeEvent.text}})} 
+              onChangeText={(text) => setEditingUser({...editingUser, user_metadata: {...editingUser.user_metadata, phone: text}})} 
             />
 
             <View style={{flexDirection: 'row', gap: 12, justifyContent: 'flex-end', marginTop: 16}}>
-              <TouchableOpacity style={[styles.button, {backgroundColor: 'transparent', borderWidth: 1, borderColor: 'var(--border)'}]} onPress={() => setEditingUser(null)}>
-                <Text style={[styles.buttonText, {color: 'var(--text-main)'}]}>Cancelar</Text>
+              <TouchableOpacity style={styles.cancelButton} onPress={() => setEditingUser(null)}>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.button} onPress={saveEdit}>
+              <TouchableOpacity style={[styles.button, { marginTop: 0 }]} onPress={saveEdit}>
                 <Text style={styles.buttonText}>Salvar</Text>
               </TouchableOpacity>
             </View>
@@ -268,21 +268,27 @@ export default function AdminScreen() {
 }
 
 const styles = StyleSheet.create({
+  outerContainer: {
+    flex: 1, 
+    backgroundColor: '#F3F4F6'
+  },
   container: {
     padding: 32,
     alignItems: 'center',
-    backgroundColor: 'var(--bg-app)'
+    backgroundColor: '#F3F4F6',
+    flexGrow: 1
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'var(--text-main)',
+    color: '#111827',
     marginBottom: 24,
+    fontFamily: 'Inter, sans-serif'
   },
   tabsContainer: {
     flexDirection: 'row',
     marginBottom: 24,
-    backgroundColor: 'var(--table-header-bg)',
+    backgroundColor: '#E5E7EB',
     borderRadius: 8,
     padding: 4,
   },
@@ -292,64 +298,94 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   activeTab: {
-    backgroundColor: 'var(--bg-card)',
-    boxShadow: '0 1px 3px var(--shadow)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'var(--text-muted)',
+    color: '#6B7280',
+    fontFamily: 'Inter, sans-serif'
   },
   activeTabText: {
-    color: 'var(--text-main)',
+    color: '#111827',
   },
   card: {
     width: 500,
     maxWidth: '100%',
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: '#FFFFFF',
     padding: 32,
     borderRadius: 8,
-    boxShadow: '0 4px 6px -1px var(--glass-border)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB'
   },
   description: {
     fontSize: 14,
-    color: 'var(--text-secondary)',
+    color: '#4B5563',
     marginBottom: 24,
+    fontFamily: 'Inter, sans-serif'
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'var(--text-secondary)',
+    color: '#4B5563',
     marginBottom: 8,
+    fontFamily: 'Inter, sans-serif'
   },
   input: {
     borderWidth: 1,
-    borderColor: 'var(--border)',
-    color: 'var(--text-main)',
-    backgroundColor: 'var(--input-bg)',
+    borderColor: '#D1D5DB',
+    color: '#111827',
+    backgroundColor: '#F9FAFB',
     padding: 12,
     borderRadius: 6,
     marginBottom: 16,
-    outlineStyle: 'none' as any,
+    fontSize: 14,
+    fontFamily: 'Inter, sans-serif'
   },
   button: {
-    backgroundColor: 'var(--text-main)',
+    backgroundColor: '#111827',
     padding: 16,
     borderRadius: 6,
     alignItems: 'center',
     marginTop: 8,
   },
   buttonText: {
-    color: 'var(--bg-card)',
+    color: '#FFFFFF',
     fontWeight: 'bold',
     fontSize: 16,
+    fontFamily: 'Inter, sans-serif'
+  },
+  cancelButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    padding: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#111827',
+    fontWeight: 'bold',
+    fontSize: 16,
+    fontFamily: 'Inter, sans-serif'
   },
   errorText: {
-    color: 'var(--danger)',
-    backgroundColor: 'var(--danger-bg)',
+    color: '#B91C1C',
+    backgroundColor: '#FEF2F2',
     padding: 12,
     borderRadius: 6,
     marginBottom: 16,
+    fontFamily: 'Inter, sans-serif'
   },
   successText: {
     color: '#059669',
@@ -357,11 +393,12 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 6,
     marginBottom: 16,
+    fontFamily: 'Inter, sans-serif'
   },
   tableHeader: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: 'var(--border)',
+    borderBottomColor: '#E5E7EB',
     paddingBottom: 12,
     marginBottom: 12,
   },
@@ -370,26 +407,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: 'var(--border-light)',
+    borderBottomColor: '#F3F4F6',
   },
   tableCell: {
     fontSize: 14,
-    color: 'var(--text-main)',
+    color: '#111827',
+    fontFamily: 'Inter, sans-serif'
   },
   modalOverlay: {
     position: 'absolute',
     top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'var(--modal-overlay)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 100,
   },
   modalContent: {
     width: 480,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 24,
     borderWidth: 1,
-    borderColor: 'var(--border)',
+    borderColor: '#E5E7EB',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 10,
   }
 });
+
