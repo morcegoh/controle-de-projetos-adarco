@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: 'var(--bg-card)',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: 'var(--border)',
   },
   backButton: {
     padding: 8,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   },
   emailText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: 'var(--text-muted)',
     marginBottom: 32,
   },
   formGroup: {
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   messageText: {
-    color: '#059669',
+    color: 'var(--success)',
     marginBottom: 16,
     fontWeight: '500',
   }

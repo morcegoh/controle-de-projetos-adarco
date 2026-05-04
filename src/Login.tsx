@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   forgotPasswordText: {
-    color: '#005B2E',
+    color: 'var(--primary)',
     fontSize: 14,
     fontWeight: '600',
   },

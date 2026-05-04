@@ -164,7 +164,7 @@ export default function AdminScreen() {
           <TextInput style={styles.input} keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
 
           <TouchableOpacity style={styles.button} onPress={submitNewUser} disabled={loadingNew}>
-            {loadingNew ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.buttonText}>Gerar Acesso</Text>}
+            {loadingNew ? <ActivityIndicator color="var(--bg-card)" /> : <Text style={styles.buttonText}>Gerar Acesso</Text>}
           </TouchableOpacity>
         </View>
       )}
@@ -172,7 +172,7 @@ export default function AdminScreen() {
       {activeTab === 'LIST' && (
         <View style={[styles.card, { width: 800 }]}>
           {loadingList ? (
-            <ActivityIndicator color="#005B2E" />
+            <ActivityIndicator color="var(--primary)" />
           ) : errorList ? (
             <Text style={styles.errorText}>{errorList}</Text>
           ) : (
@@ -189,10 +189,10 @@ export default function AdminScreen() {
                   <Text style={[styles.tableCell, {flex: 2}]} numberOfLines={1}>{u.email}</Text>
                   <Text style={[styles.tableCell, {flex: 1}]} numberOfLines={1}>{u.user_metadata?.role}</Text>
                   <View style={[styles.tableCell, {flex: 1, flexDirection: 'row', justifyContent: 'flex-end', minWidth: 80}]}>
-                     <TouchableOpacity onPress={() => setEditingUser(u)} style={{ marginLeft: 12 }}><Edit2 size={16} color="#64748B" /></TouchableOpacity>
-                     <TouchableOpacity onPress={() => confirmResetPassword(u)} style={{ marginLeft: 12 }}><Key size={16} color="#F59E0B" /></TouchableOpacity>
+                     <TouchableOpacity onPress={() => setEditingUser(u)} style={{ marginLeft: 12 }}><Edit2 size={16} color="var(--text-secondary)" /></TouchableOpacity>
+                     <TouchableOpacity onPress={() => confirmResetPassword(u)} style={{ marginLeft: 12 }}><Key size={16} color="var(--warning)" /></TouchableOpacity>
                      {u.email !== 'heder.santos@adarco.com.br' && (
-                       <TouchableOpacity onPress={() => deleteUser(u.id)} style={{ marginLeft: 12 }}><Trash2 size={16} color="#EF4444" /></TouchableOpacity>
+                       <TouchableOpacity onPress={() => deleteUser(u.id)} style={{ marginLeft: 12 }}><Trash2 size={16} color="var(--danger)" /></TouchableOpacity>
                      )}
                   </View>
                 </View>
@@ -217,7 +217,7 @@ export default function AdminScreen() {
               <TouchableOpacity style={styles.cancelButton} onPress={() => { setResetModalVisible(false); setResetUser(null); }}>
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.button, {backgroundColor: '#F59E0B', marginTop: 0}]} onPress={executeResetPassword}>
+              <TouchableOpacity style={[styles.button, {backgroundColor: 'var(--warning)', marginTop: 0}]} onPress={executeResetPassword}>
                 <Text style={[styles.buttonText, {color: '#FFFFFF'}]}>Sim, Resetar</Text>
               </TouchableOpacity>
             </View>
@@ -270,25 +270,25 @@ export default function AdminScreen() {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1, 
-    backgroundColor: '#F3F4F6'
+    backgroundColor: 'var(--bg-app)'
   },
   container: {
     padding: 32,
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: 'var(--bg-app)',
     flexGrow: 1
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#111827',
+    color: 'var(--text-main)',
     marginBottom: 24,
     fontFamily: 'Inter, sans-serif'
   },
   tabsContainer: {
     flexDirection: 'row',
     marginBottom: 24,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: 'var(--table-header-bg)',
     borderRadius: 8,
     padding: 4,
   },
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   activeTab: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--bg-card)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -308,16 +308,16 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: 'var(--text-muted)',
     fontFamily: 'Inter, sans-serif'
   },
   activeTabText: {
-    color: '#111827',
+    color: 'var(--text-main)',
   },
   card: {
     width: 500,
     maxWidth: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--bg-card)',
     padding: 32,
     borderRadius: 8,
     shadowColor: '#000',
@@ -326,41 +326,42 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
     borderWidth: 1,
-    borderColor: '#E5E7EB'
+    borderColor: 'var(--border)'
   },
   description: {
     fontSize: 14,
-    color: '#4B5563',
+    color: 'var(--text-secondary)',
     marginBottom: 24,
     fontFamily: 'Inter, sans-serif'
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#4B5563',
+    color: 'var(--text-secondary)',
     marginBottom: 8,
     fontFamily: 'Inter, sans-serif'
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    color: '#111827',
-    backgroundColor: '#F9FAFB',
+    borderColor: 'var(--border)',
+    color: 'var(--text-main)',
+    backgroundColor: 'var(--input-bg)',
     padding: 12,
     borderRadius: 6,
     marginBottom: 16,
     fontSize: 14,
-    fontFamily: 'Inter, sans-serif'
+    fontFamily: 'Inter, sans-serif',
+    outlineStyle: 'none' as any,
   },
   button: {
-    backgroundColor: '#111827',
+    backgroundColor: 'var(--text-main)',
     padding: 16,
     borderRadius: 6,
     alignItems: 'center',
     marginTop: 8,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: 'var(--bg-card)',
     fontWeight: 'bold',
     fontSize: 16,
     fontFamily: 'Inter, sans-serif'
@@ -368,28 +369,28 @@ const styles = StyleSheet.create({
   cancelButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: 'var(--border)',
     padding: 16,
     borderRadius: 6,
     alignItems: 'center',
   },
   cancelButtonText: {
-    color: '#111827',
+    color: 'var(--text-main)',
     fontWeight: 'bold',
     fontSize: 16,
     fontFamily: 'Inter, sans-serif'
   },
   errorText: {
-    color: '#B91C1C',
-    backgroundColor: '#FEF2F2',
+    color: 'var(--danger)',
+    backgroundColor: 'var(--danger-bg)',
     padding: 12,
     borderRadius: 6,
     marginBottom: 16,
     fontFamily: 'Inter, sans-serif'
   },
   successText: {
-    color: '#059669',
-    backgroundColor: '#D1FAE5',
+    color: 'var(--success)',
+    backgroundColor: 'var(--kanban-card-hover)',
     padding: 12,
     borderRadius: 6,
     marginBottom: 16,
@@ -398,7 +399,7 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: 'var(--border)',
     paddingBottom: 12,
     marginBottom: 12,
   },
@@ -407,11 +408,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: 'var(--table-border)',
   },
   tableCell: {
     fontSize: 14,
-    color: '#111827',
+    color: 'var(--text-main)',
     fontFamily: 'Inter, sans-serif'
   },
   modalOverlay: {
@@ -424,11 +425,11 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: 480,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--bg-card)',
     borderRadius: 12,
     padding: 24,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'var(--border)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,

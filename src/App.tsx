@@ -140,7 +140,7 @@ function ForcePasswordChange({ user, onComplete }: { user: User, onComplete: () 
         <Text style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--text-main)', marginBottom: 24, textAlign: 'center' }}>Troca de Senha Obrigatória</Text>
         <Text style={{ fontSize: 14, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 24 }}>Você está usando a senha padrão. Por favor, cadastre uma nova senha.</Text>
         
-        {error ? <Text style={{ color: '#DC2626', backgroundColor: 'var(--danger-bg)', padding: 12, borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>{error}</Text> : null}
+        {error ? <Text style={{ color: 'var(--danger)', backgroundColor: 'var(--danger-bg)', padding: 12, borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>{error}</Text> : null}
 
         <Text style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8, fontWeight: '500' }}>Nova Senha</Text>
         <TextInput 
@@ -163,7 +163,7 @@ function ForcePasswordChange({ user, onComplete }: { user: User, onComplete: () 
           onPress={submitPasswordChange} 
           disabled={loading}
         >
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: 'var(--bg-card)', fontWeight: '600', fontSize: 16 }}>Atualizar Senha</Text>}
+          {loading ? <ActivityIndicator color="var(--bg-card)" /> : <Text style={{ color: 'var(--bg-card)', fontWeight: '600', fontSize: 16 }}>Atualizar Senha</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -627,7 +627,7 @@ function App({ user }: { user: User }) {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#00f0ff" />
+        <ActivityIndicator size="large" color="var(--primary)" />
       </View>
     );
   }
@@ -729,7 +729,7 @@ function App({ user }: { user: User }) {
           
           <View style={{ position: 'relative', zIndex: 100 }}>
             <TouchableOpacity style={{
-              width: 36, height: 36, borderRadius: 18, backgroundColor: '#005B2E', 
+              width: 36, height: 36, borderRadius: 18, backgroundColor: 'var(--text-main)', 
               justifyContent: 'center', alignItems: 'center', marginLeft: 16
             }} onPress={() => setProfileMenuOpen(!profileMenuOpen)}>
               <Text style={{color: 'var(--bg-card)', fontWeight: 'bold', fontSize: 16}}>
@@ -757,8 +757,8 @@ function App({ user }: { user: User }) {
                 </TouchableOpacity>
                 <View style={{ height: 1, backgroundColor: 'var(--border)', marginVertical: 4 }} />
                 <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6 }} onPress={() => { supabase.auth.signOut(); }}>
-                  <LogOut size={16} color="#DC2626" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 14, color: '#DC2626', fontWeight: '500' }}>Sair</Text>
+                  <LogOut size={16} color="var(--danger)" style={{ marginRight: 8 }} />
+                  <Text style={{ fontSize: 14, color: 'var(--danger)', fontWeight: '500' }}>Sair</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -969,7 +969,7 @@ Por favor, em caso de dúvidas fale comigo.`);
         
         {errorMessage ? (
           <View style={{backgroundColor: 'var(--danger-bg)', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: 'var(--danger)'}}>
-            <Text style={{color: '#B91C1C', fontSize: 13, fontWeight: '500', fontFamily: 'Inter, sans-serif'}}>{errorMessage}</Text>
+            <Text style={{color: 'var(--danger)', fontSize: 13, fontWeight: '500', fontFamily: 'Inter, sans-serif'}}>{errorMessage}</Text>
           </View>
         ) : null}
 
