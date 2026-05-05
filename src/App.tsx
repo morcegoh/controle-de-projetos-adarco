@@ -35,6 +35,26 @@ const safeDifferenceInDays = (dateLeft?: string | Date, dateRight?: string | Dat
   }
 };
 
+const shadeColor = (color: string, percent: number) => {
+  let R = parseInt(color.substring(1, 3), 16);
+  let G = parseInt(color.substring(3, 5), 16);
+  let B = parseInt(color.substring(5, 7), 16);
+
+  R = Math.round(R * (100 + percent) / 100);
+  G = Math.round(G * (100 + percent) / 100);
+  B = Math.round(B * (100 + percent) / 100);
+
+  R = (R < 255) ? R : 255;
+  G = (G < 255) ? G : 255;
+  B = (B < 255) ? B : 255;
+
+  const RR = ((R.toString(16).length === 1) ? "0" + R.toString(16) : R.toString(16));
+  const GG = ((G.toString(16).length === 1) ? "0" + G.toString(16) : G.toString(16));
+  const BB = ((B.toString(16).length === 1) ? "0" + B.toString(16) : B.toString(16));
+
+  return "#" + RR + GG + BB;
+};
+
 const { width } = Dimensions.get('window');
 
 type Subtask = {
@@ -1916,59 +1936,48 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               const safeOffset = startInTimeline;
               const safeDuration = visibleDuration;
 
-              // Colors based on project vs task and progress
+              // Colors based on user rules
               const isCanceled = data.status === 'CANCELED';
               const isLateItem = data.status === 'LATE' && roundedProgress < 100;
               
-              let areaColor = 'rgba(16, 185, 129, 0.1)'; // Default green area
-              let borderColor = '#10b981'; // Default green border
-              let barColor = '#10b981'; // Default green bar
-              let shadowColor = '#10b981'; 
+              let areaColor = '';
+              let barColor = '';
+              let borderColor = '#10b981'; // Default green (margins)
+              let shadowColor = '#10b981'; // Default green (glow)
               let glowOpacity = 0.4;
 
               if (row.type === 'project') {
-                // Project Normal: Verde claro area
-                areaColor = 'rgba(167, 243, 208, 0.3)'; 
-                if (isLateItem) {
-                  borderColor = '#ef4444';
-                  shadowColor = '#ef4444';
-                  glowOpacity = 0.6;
-                } else if (isCanceled) {
-                  areaColor = 'rgba(239, 68, 68, 0.2)';
-                  barColor = '#ef4444';
-                  borderColor = '#ef4444';
-                  shadowColor = '#ef4444';
-                  glowOpacity = 0.6;
-                }
+                areaColor = 'rgba(167, 243, 208, 0.3)'; // Verde claro
+                barColor = '#10b981';
               } else {
-                // Task/Subtask Normal: Verde um pouco mais escuro
-                areaColor = 'rgba(16, 185, 129, 0.25)';
+                areaColor = 'rgba(16, 185, 129, 0.25)'; // Verde mais escuro
                 barColor = row.type === 'subtask' ? '#34d399' : '#10b981';
-                
-                if (isLateItem) {
-                  borderColor = '#ef4444';
-                  shadowColor = '#ef4444';
-                  glowOpacity = 0.7;
-                } else if (isCanceled) {
-                  areaColor = 'rgba(239, 68, 68, 0.2)';
-                  barColor = '#ef4444';
-                  borderColor = '#ef4444';
-                  shadowColor = '#ef4444';
-                  glowOpacity = 0.7;
-                }
+              }
+
+              if (isLateItem) {
+                // Preenchimento inalterado, apenas margens e brilho vermelhos
+                borderColor = '#ef4444';
+                shadowColor = '#ef4444';
+                glowOpacity = 0.7;
+              } else if (isCanceled) {
+                // Preenchimento vermelho, margem e brilho vermelhos
+                areaColor = 'rgba(239, 68, 68, 0.25)';
+                barColor = '#ef4444';
+                borderColor = '#ef4444';
+                shadowColor = '#ef4444';
+                glowOpacity = 0.7;
               }
 
               const blockStyle = {
                 areaColor: areaColor,
-                backgroundColor: areaColor, // Fallback for project
                 barColor: barColor,
                 borderColor: borderColor,
                 borderWidth: 1.5,
                 shadowColor: shadowColor,
                 shadowOffset: { width: 0, height: 0 },
                 shadowOpacity: glowOpacity,
-                shadowRadius: 10,
-                elevation: 5,
+                shadowRadius: 8,
+                elevation: 4,
                 displayProgress: isCanceled ? 100 : roundedProgress,
                 useGradient: !isCanceled && !isLateItem
               };
@@ -2018,29 +2027,24 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                          }
                        ]}
                      >
-                       {row.type === 'project' ? (
-                          <View style={[styles.taskBlockArea, blockStyle]}>
-                             <View style={[{ width: `${blockStyle.displayProgress}%`, backgroundColor: blockStyle.barColor, height: '100%', opacity: 0.5 }]} />
-                          </View>
-                       ) : (
-                          <View style={[styles.taskBlockArea, { 
-                             backgroundColor: blockStyle.areaColor, 
-                             borderColor: blockStyle.borderColor, 
-                             borderWidth: blockStyle.borderWidth,
-                             borderRadius: 4
-                          }]}>
-                             {blockStyle.useGradient ? (
-                                <LinearGradient 
-                                   colors={row.type === 'subtask' ? ['#059669', '#047857'] : ['#008744', '#005B2E']} 
-                                   start={{x: 0, y: 0}} 
-                                   end={{x: 1, y: 0}} 
-                                   style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%` }]} 
-                                />
-                             ) : (
-                               <View style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%`, backgroundColor: blockStyle.barColor }]} />
-                             )}
-                          </View>
-                       )}
+                        <View style={[styles.taskBlockArea, { 
+                           backgroundColor: blockStyle.areaColor, 
+                           borderColor: blockStyle.borderColor, 
+                           borderWidth: blockStyle.borderWidth,
+                           borderRadius: 4,
+                           overflow: 'hidden'
+                        }]}>
+                           {blockStyle.useGradient ? (
+                              <LinearGradient 
+                                 colors={[blockStyle.barColor, shadeColor(blockStyle.barColor, -20)]} 
+                                 start={{x: 0, y: 0}} 
+                                 end={{x: 1, y: 0}} 
+                                 style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%` }]} 
+                              />
+                           ) : (
+                             <View style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%`, backgroundColor: blockStyle.barColor }]} />
+                           )}
+                        </View>
                      </View>
                   )}
                 </View>
