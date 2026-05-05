@@ -228,6 +228,30 @@ function App({ user }: { user: User }) {
   const isSmallMobile = windowWidth < 480;
 
   const [projects, setProjects] = useState<Project[]>([]);
+
+  // Monitoramento de inatividade para logout automático (5 minutos)
+  useEffect(() => {
+    let timeoutId: any;
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      // 5 minutos = 300.000 milissegundos
+      timeoutId = setTimeout(() => {
+        supabase.auth.signOut();
+      }, 300000);
+    };
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(event => window.addEventListener(event, resetTimer));
+
+    resetTimer(); // Inicia o timer
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      events.forEach(event => window.removeEventListener(event, resetTimer));
+    };
+  }, []);
+
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN'>('GANTT');
 
@@ -697,7 +721,6 @@ function App({ user }: { user: User }) {
       if (newProgress === 100) {
         updateData.status = 'COMPLETED';
         updateData.end_date = new Date().toISOString().substring(0, 10);
-        setActiveTab('BOARD');
       } else {
         updateData.end_date = null;
         if (newProgress > 0) {
@@ -740,7 +763,6 @@ function App({ user }: { user: User }) {
       if (newProgress === 0) status = 'NOT_STARTED';
       if (newProgress === 100) {
         status = 'COMPLETED';
-        setActiveTab('BOARD');
       }
       
       const updateData: any = { progress: newProgress, status };
