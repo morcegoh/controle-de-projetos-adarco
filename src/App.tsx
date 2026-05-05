@@ -265,13 +265,13 @@ function App({ user }: { user: User }) {
   const fetchProjects = async () => {
     try {
       if (!user?.id) return;
-      const { data: projData, error: projErr } = await supabase.from('projects').select('*').eq('user_id', user.id);
+      const { data: projData, error: projErr } = await supabase.from('projects').select('*').eq('user_id', user.id).order('created_at', { ascending: true });
       if (projErr) throw projErr;
       
-      const { data: taskData, error: taskErr } = await supabase.from('tasks').select('*');
+      const { data: taskData, error: taskErr } = await supabase.from('tasks').select('*').order('created_at', { ascending: true });
       if (taskErr) throw taskErr;
       
-      const { data: subtaskData, error: subtaskErr } = await supabase.from('subtasks').select('*');
+      const { data: subtaskData, error: subtaskErr } = await supabase.from('subtasks').select('*').order('created_at', { ascending: true });
       if (subtaskErr) throw subtaskErr;
 
       const formattedProjects = (projData || []).map(p => {
@@ -1349,7 +1349,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   // Generate Days Header
   const daysArray = Array.from({ length: TIMELINE_DAYS }).map((_, i) => addDays(timelineStart, i));
 
-  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(() => new Set(projects.map(p => p.id)));
 
   const toggleProjectCollapse = (projectId: string) => {
     const newCollapsed = new Set(collapsedProjects);
@@ -1361,6 +1361,27 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
     setCollapsedProjects(newCollapsed);
   };
 
+  const [leftWidth, setLeftWidth] = useState(550);
+  const isResizing = useRef(false);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isResizing.current) {
+        setLeftWidth(Math.max(200, Math.min(1200, e.clientX - 20)));
+      }
+    };
+    const handleMouseUp = () => {
+      isResizing.current = false;
+      document.body.style.cursor = 'default';
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
   const headerScrollRef = useRef<ScrollView>(null);
   
   const handleBodyScroll = (event: any) => {
@@ -1371,7 +1392,16 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   // Flatten rendering rows so left and right render identically
   type RenderRow = { type: 'project', data: Project } | { type: 'task', data: Task } | { type: 'subtask', data: Subtask, parentTaskId: string };
   const rows: RenderRow[] = [];
+  
   projects.forEach(p => {
+    // Hidden concluded/closed projects if they finished before the current timeline start
+    const isFinished = p.status === 'COMPLETED' || p.status === 'CLOSED';
+    const finishDate = p.endDate ? new Date(p.endDate) : (p.forecastDate ? new Date(p.forecastDate) : null);
+    
+    if (isFinished && finishDate && finishDate < timelineStart) {
+      return; // Skip this project
+    }
+
     rows.push({ type: 'project', data: p });
     if (!collapsedProjects.has(p.id)) {
       p.tasks.forEach(t => {
@@ -1388,14 +1418,32 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
       
       {/* Pinned Headers Container */}
       <View style={styles.ganttHeaderRow}>
-        <View style={[styles.leftPanel, styles.tableHeader]}>
-          <Text style={[styles.headerCell, { flex: 2 }]}>PROJETO / TAREFA</Text>
+        <View style={[styles.leftPanel, styles.tableHeader, { width: leftWidth }]}>
+          <Text style={[styles.headerCell, { flex: 3 }]}>PROJETO / TAREFA</Text>
           <Text style={[styles.headerCell, { flex: 1.5 }]}>ATRIBUÍDO</Text>
           <Text style={[styles.headerCell, { flex: 0.8, textAlign: 'center' }]}>%</Text>
           <Text style={[styles.headerCell, { flex: 1 }]}>INÍCIO</Text>
           <Text style={[styles.headerCell, { flex: 1 }]}>PREVISÃO</Text>
           <Text style={[styles.headerCell, { flex: 1 }]}>TÉRMINO</Text>
         </View>
+
+        {/* Resize Handle */}
+        <div 
+          onMouseDown={() => { isResizing.current = true; document.body.style.cursor = 'col-resize'; }}
+          style={{
+            width: 4,
+            cursor: 'col-resize',
+            zIndex: 100,
+            backgroundColor: 'var(--border)',
+            position: 'absolute',
+            left: leftWidth - 2,
+            top: 0,
+            bottom: 0,
+            transition: 'background-color 0.2s'
+          }}
+          onMouseEnter={(e: any) => e.target.style.backgroundColor = 'var(--primary)'}
+          onMouseLeave={(e: any) => !isResizing.current && (e.target.style.backgroundColor = 'var(--border)')}
+        />
 
         <ScrollView 
           ref={headerScrollRef}
@@ -1423,14 +1471,14 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
       <View style={styles.ganttBodyRow}>
         
         {/* Left Panel - Fixed Row Info */}
-        <View style={styles.leftPanelBody}>
+        <View style={[styles.leftPanelBody, { width: leftWidth }]}>
           {rows.map((row, idx) => {
             if (row.type === 'project') {
               const p = row.data as Project;
               const isLate = p.status === 'LATE';
               return (
                 <View key={`lp-${p.id}`} style={[styles.rowBase, styles.projectRow, isLate && { borderLeftWidth: 3, borderLeftColor: 'var(--danger)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}>
-                  <View style={{ flex: 2, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ flex: 3, flexDirection: 'row', alignItems: 'center' }}>
                     {p.tasks && p.tasks.length > 0 && (
                       <TouchableOpacity onPress={() => toggleProjectCollapse(p.id)} style={{ marginRight: 4, padding: 4 }}>
                         {collapsedProjects.has(p.id) ? (
@@ -1441,9 +1489,9 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity style={{ flex: 1, justifyContent: 'center', marginLeft: p.tasks && p.tasks.length > 0 ? 0 : 24 }} onPress={() => onEditRequest({ type: 'project', isNew: false, projectData: p })}>
-                      <Text style={[styles.cellText, styles.projectTitleText]} numberOfLines={1}>{p.title}</Text>
+                      <Text style={[styles.cellText, styles.projectTitleText]}>{p.title}</Text>
                       {(p.department || p.owner) && (
-                        <Text style={{color: 'var(--text-muted)', fontSize: 10, marginTop: 2}} numberOfLines={1}>
+                        <Text style={{color: 'var(--text-muted)', fontSize: 10, marginTop: 2}}>
                           {[p.department, p.owner].filter(Boolean).join(' • ')}
                         </Text>
                       )}
@@ -1478,15 +1526,15 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lt-${task.id}`} style={[styles.rowBase, styles.taskRow]}>
-                  <TouchableOpacity style={{ flex: 2, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })}>
+                  <TouchableOpacity style={{ flex: 3, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })}>
                     <CornerDownRight size={14} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor }]} />
-                    <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }]} numberOfLines={1}>{task.title}</Text>
+                    <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }]}>{task.title}</Text>
                     <TouchableOpacity onPress={() => onEditRequest({ type: 'subtask', isNew: true, parentTaskId: task.id })} style={{ padding: 2, backgroundColor: 'var(--bg-card)', borderRadius: 4, borderWidth: 1, borderColor: 'var(--border)' }}>
                       <Text style={{ fontSize: 10, color: 'var(--text-secondary)' }}>+ Sub</Text>
                     </TouchableOpacity>
                   </TouchableOpacity>
-                  <Text style={[styles.cellText, styles.mutedText, { flex: 1.5 }]} numberOfLines={1}>{task.assignees.join(', ')}</Text>
+                  <Text style={[styles.cellText, styles.mutedText, { flex: 1.5 }]}>{task.assignees.join(', ')}</Text>
                   
                   <TouchableOpacity style={{ flex: 0.8, alignItems: 'center' }} onPress={() => onUpdateProgress(task.id, task.progress >= 100 ? 0 : task.progress + 25)}>
                     <View style={styles.progressBadge}>
@@ -1515,12 +1563,12 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lst-${subtask.id}`} style={[styles.rowBase, styles.taskRow, { backgroundColor: 'var(--bg-card)' }]}>
-                  <TouchableOpacity style={{ flex: 2, paddingLeft: 56, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })}>
+                  <TouchableOpacity style={{ flex: 3, paddingLeft: 56, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })}>
                     <CornerDownRight size={12} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor, width: 6, height: 6, opacity: 0.7 }]} />
-                    <Text style={[styles.cellText, styles.titleText, { fontSize: 12, color: 'var(--text-secondary)' }]} numberOfLines={1}>{subtask.title}</Text>
+                    <Text style={[styles.cellText, styles.titleText, { fontSize: 12, color: 'var(--text-secondary)' }]}>{subtask.title}</Text>
                   </TouchableOpacity>
-                  <Text style={[styles.cellText, styles.mutedText, { flex: 1.5, fontSize: 11 }]} numberOfLines={1}>{subtask.assignees.join(', ')}</Text>
+                  <Text style={[styles.cellText, styles.mutedText, { flex: 1.5, fontSize: 11 }]}>{subtask.assignees.join(', ')}</Text>
                   
                   <TouchableOpacity style={{ flex: 0.8, alignItems: 'center' }} onPress={() => onUpdateSubtaskProgress(subtask.id, subtask.progress >= 100 ? 0 : subtask.progress + 25)}>
                     <View style={[styles.progressBadge, { paddingHorizontal: 4, paddingVertical: 1 }]}>
@@ -1554,16 +1602,17 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
           <View style={{ flexDirection: 'column' }}>
             {rows.map((row, idx) => {
               const data = row.data;
-              const startOffset = Math.max(0, safeDifferenceInDays(data.startDate, timelineStart));
-              let duration = 0;
-              if (data.forecastDate) {
-                 duration = safeDifferenceInDays(data.forecastDate, data.startDate) + 1;
-              } else {
-                 duration = 3; 
-              }
+              const rawStartOffset = safeDifferenceInDays(data.startDate, timelineStart);
+              const rawEndOffset = safeDifferenceInDays(data.forecastDate || data.endDate || data.startDate, timelineStart);
               
-              const safeOffset = Math.max(0, startOffset);
-              const safeDuration = Math.max(1, duration);
+              const isVisibleInTimeline = rawEndOffset >= 0 && rawStartOffset < TIMELINE_DAYS;
+              
+              const startInTimeline = Math.max(0, rawStartOffset);
+              const endInTimeline = Math.min(TIMELINE_DAYS - 1, rawEndOffset);
+              const visibleDuration = Math.max(0, endInTimeline - startInTimeline + 1);
+              
+              const safeOffset = startInTimeline;
+              const safeDuration = visibleDuration;
 
               // Colors based on project vs task and progress
               let blockStyle: any = null;
@@ -1644,7 +1693,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                   </View>
 
                   {/* Task/Project Block */}
-                  {startOffset >= 0 && (
+                  {isVisibleInTimeline && visibleDuration > 0 && (
                      <View 
                        style={[
                          styles.taskBlockContainer, 
@@ -1982,7 +2031,7 @@ const styles = StyleSheet.create({
   
   // Rows
   rowBase: {
-    height: 48,
+    minHeight: 48,
     borderBottomWidth: 1,
     borderBottomColor: 'var(--border)',
   },
