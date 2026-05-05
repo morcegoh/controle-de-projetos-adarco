@@ -820,9 +820,10 @@ function App({ user }: { user: User }) {
   return (
     <View style={styles.container}>
       {/* Header - Glassmorphism */}
-      <View style={[styles.header, isMobile && { paddingHorizontal: 16, flexDirection: 'column', alignItems: 'stretch', gap: 12 }]}>
-        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
-          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+      <View style={[styles.header, isMobile && { paddingHorizontal: 16 }]}>
+        <View style={{ flex: 1, flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: 16 }}>
+          
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
             {activeTab === 'BOARD' && (
               <TouchableOpacity 
                 onPress={() => { handleTabChange('GANTT'); setHighlightedTaskId(null); }} 
@@ -834,68 +835,49 @@ function App({ user }: { user: User }) {
             <TouchableOpacity onPress={() => { handleTabChange('GANTT'); setHighlightedTaskId(null); }}>
               <Text style={[styles.appName, isMobile && { fontSize: 16 }]}>Controle de Projetos Adarco</Text>
             </TouchableOpacity>
-          </View>
 
-          <View style={{ position: 'relative', zIndex: 110 }}>
-            <TouchableOpacity style={{
-              width: 32, height: 32, borderRadius: 16, backgroundColor: 'var(--text-main)', 
-              justifyContent: 'center', alignItems: 'center'
-            }} onPress={() => setProfileMenuOpen(!profileMenuOpen)}>
-              <Text style={{color: 'var(--bg-card)', fontWeight: 'bold', fontSize: 14}}>
-                {(user?.user_metadata?.full_name?.[0] || user?.user_metadata?.displayName?.[0] || user?.email?.[0] || '?').toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-            
-            {profileMenuOpen && (
-              <View style={{
-                position: 'absolute', top: 40, right: 0, width: 180, 
-                backgroundColor: 'var(--bg-card)', borderRadius: 8, padding: 8,
-                shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, borderWidth: 1, borderColor: 'var(--border)'
-              }}>
-                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6, marginBottom: 4 }} onPress={() => { handleTabChange('PROFILE'); setProfileMenuOpen(false); }}>
-                  <UserIcon size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>Editar perfil</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6, marginBottom: 4 }} onPress={() => { toggleTheme(); setProfileMenuOpen(false); }}>
-                  <Moon size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>{theme === 'light' ? 'Tema Escuro' : 'Tema Claro'}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6 }} onPress={() => { handleTabChange('ADMIN'); setProfileMenuOpen(false); }}>
-                  <Settings size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>Configuração</Text>
-                </TouchableOpacity>
-                <View style={{ height: 1, backgroundColor: 'var(--border)', marginVertical: 4 }} />
-                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6 }} onPress={() => { supabase.auth.signOut(); }}>
-                  <LogOut size={16} color="var(--danger)" style={{ marginRight: 8 }} />
-                  <Text style={{ fontSize: 14, color: 'var(--danger)', fontWeight: '500' }}>Sair</Text>
-                </TouchableOpacity>
+            {!isMobile && activeTab === 'GANTT' && (
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 24}}>
+                <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 14}}>Timeline:</Text>
+                <select 
+                  style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(Number(e.target.value))}
+                >
+                  {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <select
+                  style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
+                  value={filterWeek}
+                  onChange={(e) => setFilterWeek(Number(e.target.value))}
+                >
+                  {Array.from({length: 53}).map((_, i) => <option key={i+1} value={i+1}>{isMobile ? `S${i+1}` : `Semana ${i+1}`}</option>)}
+                </select>
               </View>
             )}
           </View>
-        </View>
 
-        <View style={{ flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: 12, flexWrap: 'wrap' }}>
-          {activeTab === 'GANTT' && (
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: isMobile ? 0 : 40}}>
+          {isMobile && activeTab === 'GANTT' && (
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4}}>
               <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 14}}>Timeline:</Text>
               <select 
-                style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: '#fff', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
+                style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '12px', appearance: 'auto' as any }}
                 value={filterYear}
                 onChange={(e) => setFilterYear(Number(e.target.value))}
               >
                 {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
               </select>
               <select
-                style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: '#fff', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
+                style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '12px', appearance: 'auto' as any }}
                 value={filterWeek}
                 onChange={(e) => setFilterWeek(Number(e.target.value))}
               >
-                {Array.from({length: 53}).map((_, i) => <option key={i+1} value={i+1}>{isMobile ? `S${i+1}` : `Semana ${i+1}`}</option>)}
+                {Array.from({length: 53}).map((_, i) => <option key={i+1} value={i+1}>{`S${i+1}`}</option>)}
               </select>
             </View>
           )}
 
-          <View style={[styles.tabsContainer, isMobile && { width: '100%', justifyContent: 'space-between' }]}>
+          <View style={[styles.tabsContainer, isMobile && { width: '100%', justifyContent: 'space-between' }, { marginRight: isMobile ? 0 : 40 }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity style={styles.addButton} onPress={() => setEditingItem({ type: 'project', isNew: true })}>
                 <Text style={styles.addButtonText}>+ Projeto</Text>
@@ -904,19 +886,58 @@ function App({ user }: { user: User }) {
             
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <TouchableOpacity 
-                style={[styles.tab, activeTab === 'GANTT' && styles.activeTab, isSmallMobile && { paddingHorizontal: 8 }]}
+                style={[styles.tab, activeTab === 'GANTT' && styles.activeTab]}
                 onPress={() => handleTabChange('GANTT')}
               >
-                <Text style={[styles.tabText, activeTab === 'GANTT' && styles.activeTabText, isSmallMobile && { fontSize: 12 }]}>{isSmallMobile ? 'Gantt' : 'Timeline View'}</Text>
+                <Text style={[styles.tabText, activeTab === 'GANTT' && styles.activeTabText, isMobile && { fontSize: 12 }]}>{isMobile ? 'Gantt' : 'Timeline View'}</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.tab, activeTab === 'BOARD' && styles.activeTab, isSmallMobile && { paddingHorizontal: 8 }]}
+                style={[styles.tab, activeTab === 'BOARD' && styles.activeTab]}
                 onPress={() => handleTabChange('BOARD')}
               >
-                <Text style={[styles.tabText, activeTab === 'BOARD' && styles.activeTabText, isSmallMobile && { fontSize: 12 }]}>{isSmallMobile ? 'Kanban' : 'Board View'}</Text>
+                <Text style={[styles.tabText, activeTab === 'BOARD' && styles.activeTabText, isMobile && { fontSize: 12 }]}>{isMobile ? 'Kanban' : 'Board View'}</Text>
               </TouchableOpacity>
             </View>
           </View>
+
+        </View>
+
+        {/* Profile Icon - Fixed Top Right */}
+        <View style={{ position: 'absolute', top: 16, right: isMobile ? 12 : 16, zIndex: 110 }}>
+          <TouchableOpacity style={{
+            width: 32, height: 32, borderRadius: 16, backgroundColor: 'var(--text-main)', 
+            justifyContent: 'center', alignItems: 'center'
+          }} onPress={() => setProfileMenuOpen(!profileMenuOpen)}>
+            <Text style={{color: 'var(--bg-card)', fontWeight: 'bold', fontSize: 14}}>
+              {(user?.user_metadata?.full_name?.[0] || user?.user_metadata?.displayName?.[0] || user?.email?.[0] || '?').toUpperCase()}
+            </Text>
+          </TouchableOpacity>
+          
+          {profileMenuOpen && (
+            <View style={{
+              position: 'absolute', top: 40, right: 0, width: 180, 
+              backgroundColor: 'var(--bg-card)', borderRadius: 8, padding: 8,
+              shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, borderWidth: 1, borderColor: 'var(--border)'
+            }}>
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6, marginBottom: 4 }} onPress={() => { handleTabChange('PROFILE'); setProfileMenuOpen(false); }}>
+                <UserIcon size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>Editar perfil</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6, marginBottom: 4 }} onPress={() => { toggleTheme(); setProfileMenuOpen(false); }}>
+                <Moon size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>{theme === 'light' ? 'Tema Escuro' : 'Tema Claro'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6 }} onPress={() => { handleTabChange('ADMIN'); setProfileMenuOpen(false); }}>
+                <Settings size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>Configuração</Text>
+              </TouchableOpacity>
+              <View style={{ height: 1, backgroundColor: 'var(--border)', marginVertical: 4 }} />
+              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6 }} onPress={() => { supabase.auth.signOut(); }}>
+                <LogOut size={16} color="var(--danger)" style={{ marginRight: 8 }} />
+                <Text style={{ fontSize: 14, color: 'var(--danger)', fontWeight: '500' }}>Sair</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
 
@@ -1537,31 +1558,31 @@ const GanttBar = ({ progress, status }: { progress: number; status: 'em_dia' | '
   let shadowColor = "";
 
   if (status === 'em_dia') {
-    areaClasses = "border-emerald-400";
-    barClasses = "from-emerald-200/60 to-emerald-400/60";
-    shadowColor = "rgba(52,211,153,0.5)";
+    areaClasses = "border-emerald-400 bg-emerald-500/5";
+    barClasses = "from-emerald-400/40 to-emerald-500/60";
+    shadowColor = "rgba(16, 185, 129, 0.4)";
   } else if (status === 'atrasado') {
-    areaClasses = "border-red-400";
-    barClasses = "from-emerald-200/60 to-emerald-400/60";
-    shadowColor = "rgba(248,113,113,0.5)";
+    areaClasses = "border-red-400 bg-red-500/5";
+    barClasses = "from-emerald-400/30 to-emerald-500/50";
+    shadowColor = "rgba(239, 68, 68, 0.5)";
   } else if (status === 'cancelado') {
-    areaClasses = "border-red-400";
-    barClasses = "from-red-200/50 to-red-400/50";
-    shadowColor = "rgba(248,113,113,0.5)";
+    areaClasses = "border-red-400 bg-red-500/10";
+    barClasses = "from-red-400/40 to-red-500/60";
+    shadowColor = "rgba(239, 68, 68, 0.4)";
   }
 
-  // Usamos style para a sombra pois o Tailwind pode não ter o shadow customizado registrado dependendo da config
+  // Neon glow effect adapted for both modes
   const glowStyle = {
-    boxShadow: `0 0 10px ${shadowColor}`,
+    boxShadow: `0 0 12px ${shadowColor}`,
   };
 
   return (
     <div 
-      className={`relative h-full w-full rounded-md border-[1px] overflow-hidden ${areaClasses} bg-white/5`}
+      className={`relative h-full w-full rounded-md border-[1px] overflow-hidden ${areaClasses}`}
       style={glowStyle}
     >
       <div 
-        className={`h-full bg-gradient-to-r ${barClasses} transition-all duration-500`} 
+        className={`h-full bg-gradient-to-r ${barClasses} transition-all duration-500 shadow-inner`} 
         style={{ width: `${progress}%` }}
       />
     </div>
@@ -1854,7 +1875,11 @@ const GanttView = ({ projects, timelineStart, expandedProjects, setExpandedProje
               const data = row.data;
               const roundedProgress = Math.round(data.progress || 0);
               const isCanceled = data.status === 'CANCELED';
-              const isLateItem = data.status === 'LATE' && roundedProgress < 100;
+              
+              // Nova lógica: Atrasado se status for LATE OU se terminou depois do previsto
+              const finishedLate = data.endDate && data.forecastDate && new Date(data.endDate) > new Date(data.forecastDate);
+              const isLateItem = (data.status === 'LATE' || finishedLate);
+              
               const rawStartOffset = safeDifferenceInDays(data.startDate, timelineStart);
               
               const isFinishedRow = data.status === 'COMPLETED' || roundedProgress >= 100 || isCanceled;
@@ -2201,7 +2226,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   addTarefaBtnText: {
-    color: '#005b2e',
+    color: 'var(--primary)',
     fontSize: 10,
     fontWeight: '700',
     fontFamily: 'Inter, sans-serif',
@@ -2211,7 +2236,7 @@ const styles = StyleSheet.create({
   },
   ganttHeaderRow: {
     flexDirection: 'row',
-    backgroundColor: 'var(--bg-card)FFF',
+    backgroundColor: 'var(--bg-card)',
     zIndex: 10,
     borderBottomWidth: 1,
     borderBottomColor: 'var(--border)',
@@ -2229,11 +2254,11 @@ const styles = StyleSheet.create({
     width: LEFT_PANEL_WIDTH,
     borderRightWidth: 1,
     borderRightColor: 'var(--border)',
-    backgroundColor: 'var(--bg-card)FFF',
+    backgroundColor: 'var(--bg-card)',
   },
   rightPanelHeader: {
     flex: 1,
-    backgroundColor: 'var(--bg-card)FFF',
+    backgroundColor: 'var(--bg-card)',
   },
   rightPanelBody: {
     flex: 1,
@@ -2348,7 +2373,7 @@ const styles = StyleSheet.create({
   gridLine: {
     width: DAY_WIDTH,
     borderRightWidth: 1,
-    borderRightColor: '#f1f5f9',
+    borderRightColor: 'var(--border-light)',
   },
   taskBlockContainer: {
     position: 'absolute',
