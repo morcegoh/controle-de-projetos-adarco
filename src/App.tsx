@@ -1706,10 +1706,10 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                         )}
                       </TouchableOpacity>
                     )}
-                    <TouchableOpacity style={{ flex: 1, justifyContent: 'center', marginLeft: p.tasks && p.tasks.length > 0 ? 0 : 24 }} onPress={() => onEditRequest({ type: 'project', isNew: false, projectData: p })}>
-                      <Text style={[styles.cellText, styles.projectTitleText, isMobile && { fontSize: 10 }]}>{p.title}</Text>
+                    <TouchableOpacity style={{ flex: 1, justifyContent: 'center', marginLeft: p.tasks && p.tasks.length > 0 ? 0 : 24 }} onPress={() => onEditRequest({ type: 'project', isNew: false, projectData: p })} title={p.title}>
+                      <Text style={[styles.cellText, styles.projectTitleText, isMobile && { fontSize: 10 }]} title={p.title}>{p.title}</Text>
                       {!isMobile && (p.department || p.owner) && (
-                        <Text style={{color: 'var(--text-muted)', fontSize: 10, marginTop: 2}}>
+                        <Text style={{color: 'var(--text-muted)', fontSize: 10, marginTop: 2}} title={[p.department, p.owner].filter(Boolean).join(' • ')}>
                           {[p.department, p.owner].filter(Boolean).join(' • ')}
                         </Text>
                       )}
@@ -1727,13 +1727,13 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                   </View>
                   {!isMobile && (
                     <>
-                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1 }]} numberOfLines={1}>
+                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1 }]} numberOfLines={1} title={safeFormatDate(p.startDate)}>
                         {safeFormatDate(p.startDate)}
                       </Text>
-                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: p.status === 'LATE' ? 'var(--danger)' : 'var(--text-main)' }]} numberOfLines={1}>
+                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: p.status === 'LATE' ? 'var(--danger)' : 'var(--text-main)' }]} numberOfLines={1} title={safeFormatDate(p.forecastDate)}>
                         {safeFormatDate(p.forecastDate)}
                       </Text>
-                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: (p.status === 'LATE' || (p.endDate && p.forecastDate && new Date(p.endDate) > new Date(p.forecastDate))) ? 'var(--danger)' : 'var(--primary)' }]} numberOfLines={1}>
+                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: (p.status === 'LATE' || (p.endDate && p.forecastDate && new Date(p.endDate) > new Date(p.forecastDate))) ? 'var(--danger)' : 'var(--primary)' }]} numberOfLines={1} title={p.progress === 100 ? safeFormatDate(p.endDate) : '--/--/--'}>
                         {p.progress === 100 ? safeFormatDate(p.endDate) : '--/--/--'}
                       </Text>
                     </>
@@ -1750,10 +1750,10 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lt-${task.id}`} style={[styles.rowBase, styles.taskRow]}>
-                  <TouchableOpacity style={{ flex: isMobile ? 5 : 3, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })}>
+                  <TouchableOpacity style={{ flex: isMobile ? 5 : 3, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })} title={task.title}>
                     <CornerDownRight size={14} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor }]} />
-                    <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }, isMobile && { fontSize: 11 }]}>{task.title}</Text>
+                    <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }, isMobile && { fontSize: 11 }]} title={task.title}>{task.title}</Text>
                     {!isMobile && (
                       <TouchableOpacity onPress={() => onEditRequest({ type: 'subtask', isNew: true, parentTaskId: task.id })} style={{ padding: 2, backgroundColor: 'var(--bg-card)', borderRadius: 4, borderWidth: 1, borderColor: 'var(--border)' }}>
                         <Text style={{ fontSize: 10, color: 'var(--text-secondary)' }}>+ Sub</Text>
@@ -1793,10 +1793,10 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lst-${subtask.id}`} style={[styles.rowBase, styles.taskRow, { backgroundColor: 'var(--bg-card)' }]}>
-                  <TouchableOpacity style={{ flex: isMobile ? 5 : 3, paddingLeft: isMobile ? 32 : 56, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })}>
+                  <TouchableOpacity style={{ flex: isMobile ? 5 : 3, paddingLeft: isMobile ? 32 : 56, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })} title={subtask.title}>
                     <CornerDownRight size={12} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor, width: 6, height: 6, opacity: 0.7 }]} />
-                    <Text style={[styles.cellText, styles.titleText, { fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)' }]}>{subtask.title}</Text>
+                    <Text style={[styles.cellText, styles.titleText, { fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)' }]} title={subtask.title}>{subtask.title}</Text>
                   </TouchableOpacity>
                   {!isMobile && <Text style={[styles.cellText, styles.mutedText, { flex: 1.5, fontSize: 11 }]}>{subtask.assignees.join(', ')}</Text>}
                   
@@ -1837,7 +1837,10 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
             {rows.map((row, idx) => {
               const data = row.data;
               const rawStartOffset = safeDifferenceInDays(data.startDate, timelineStart);
-              const rawEndOffset = safeDifferenceInDays(data.forecastDate || data.endDate || data.startDate, timelineStart);
+              
+              // If completed (100%), use endDate as the boundary. Otherwise use forecastDate.
+              const boundaryDate = (data.progress === 100 && data.endDate) ? data.endDate : (data.forecastDate || data.endDate || data.startDate);
+              const rawEndOffset = safeDifferenceInDays(boundaryDate, timelineStart);
               
               const isVisibleInTimeline = rawEndOffset >= 0 && rawStartOffset < TIMELINE_DAYS;
               
@@ -2103,11 +2106,13 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
                       ]} 
                       onPress={() => {
                         onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: task.projectId });
-                      }}>
-                      <Text style={styles.cardProjectTag}>{task.projectName}</Text>
-                      <Text style={styles.cardTitle}>{task.title}</Text>
-                      <Text style={styles.cardAssignee}>{task.assignees.join(', ')}</Text>
-                      {task.updates ? <Text style={styles.cardUpdates} numberOfLines={2}>{task.updates}</Text> : null}
+                      }}
+                      title={task.title}
+                    >
+                      <Text style={styles.cardProjectTag} title={task.projectName}>{task.projectName}</Text>
+                      <Text style={styles.cardTitle} title={task.title}>{task.title}</Text>
+                      <Text style={styles.cardAssignee} title={task.assignees.join(', ')}>{task.assignees.join(', ')}</Text>
+                      {task.updates ? <Text style={styles.cardUpdates} numberOfLines={2} title={task.updates}>{task.updates}</Text> : null}
                       <View style={styles.cardFooter}>
                         <Text style={[styles.cardDate, task.status === 'LATE' && { color: 'var(--danger)', opacity: 1 }]}>
                           {safeFormatDate(task.startDate, 'dd/MM')} - {safeFormatDate(task.forecastDate, 'dd/MM', 'TBD')}
