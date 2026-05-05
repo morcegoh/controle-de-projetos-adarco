@@ -1608,7 +1608,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   // Generate Days Header
   const daysArray = Array.from({ length: TIMELINE_DAYS }).map((_, i) => addDays(timelineStart, i));
 
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set(projects.map(p => p.id)));
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const toggleProjectExpansion = (projectId: string) => {
@@ -1942,44 +1942,53 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               
               let areaColor = '';
               let barColor = '';
-              let borderColor = '#10b981'; // Default green (margins)
-              let shadowColor = '#10b981'; // Default green (glow)
-              let glowOpacity = 0.4;
+              let borderColor = '#10b981'; // Verde padrão (margens)
+              let shadowColor = '#10b981'; // Brilho verde padrão
+              let glowOpacity = 0.5;
+              let glowRadius = 10;
 
               if (row.type === 'project') {
-                areaColor = 'rgba(167, 243, 208, 0.3)'; // Verde claro
+                // Projeto Normal: Verde claro com brilho verde suave
+                areaColor = 'rgba(167, 243, 208, 0.45)'; 
                 barColor = '#10b981';
+                glowOpacity = 0.5;
+                glowRadius = 10;
               } else {
-                areaColor = 'rgba(16, 185, 129, 0.25)'; // Verde mais escuro
+                // Tarefa Normal: Verde mais escuro que o projeto
+                areaColor = 'rgba(5, 150, 105, 0.35)';
                 barColor = row.type === 'subtask' ? '#34d399' : '#10b981';
+                glowOpacity = 0.4;
+                glowRadius = 8;
               }
 
               if (isLateItem) {
-                // Preenchimento inalterado, apenas margens e brilho vermelhos
+                // Atraso: Mantém preenchimento, altera margem e brilho para vermelho
                 borderColor = '#ef4444';
                 shadowColor = '#ef4444';
-                glowOpacity = 0.7;
+                glowOpacity = 1.0; 
+                glowRadius = 20;
               } else if (isCanceled) {
-                // Preenchimento vermelho, margem e brilho vermelhos
-                areaColor = 'rgba(239, 68, 68, 0.25)';
+                // Cancelado: Tudo vermelho
+                areaColor = 'rgba(239, 68, 68, 0.45)';
                 barColor = '#ef4444';
                 borderColor = '#ef4444';
                 shadowColor = '#ef4444';
-                glowOpacity = 0.7;
+                glowOpacity = 1.0;
+                glowRadius = 20;
               }
 
               const blockStyle = {
                 areaColor: areaColor,
                 barColor: barColor,
                 borderColor: borderColor,
-                borderWidth: 1.5,
+                borderWidth: 2.5, // Margens bem definidas
                 shadowColor: shadowColor,
                 shadowOffset: { width: 0, height: 0 },
                 shadowOpacity: glowOpacity,
-                shadowRadius: 8,
-                elevation: 4,
+                shadowRadius: glowRadius,
+                elevation: isLateItem || isCanceled ? 12 : 6,
                 displayProgress: isCanceled ? 100 : roundedProgress,
-                useGradient: !isCanceled && !isLateItem
+                useGradient: !isCanceled
               };
 
               return (
@@ -2036,7 +2045,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                         }]}>
                            {blockStyle.useGradient ? (
                               <LinearGradient 
-                                 colors={[blockStyle.barColor, shadeColor(blockStyle.barColor, -20)]} 
+                                 colors={[blockStyle.barColor, shadeColor(blockStyle.barColor, -15)]} 
                                  start={{x: 0, y: 0}} 
                                  end={{x: 1, y: 0}} 
                                  style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%` }]} 
