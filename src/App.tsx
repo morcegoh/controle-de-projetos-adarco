@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, Touc
 import { LinearGradient } from 'expo-linear-gradient';
 import { addDays, format, differenceInDays, parseISO, startOfDay, isValid, getISOWeek, getYear, setISOWeek, setYear, startOfISOWeek, setWeek } from 'date-fns';
 
-import { Download, User as UserIcon, Settings, LogOut, Moon, CornerDownRight } from 'lucide-react';
+import { Download, User as UserIcon, Settings, LogOut, Moon, CornerDownRight, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeProvider, useTheme } from './theme';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './supabase';
@@ -227,6 +228,29 @@ function App({ user }: { user: User }) {
   const [activeTab, setActiveTab] = useState<'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN'>('GANTT');
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
+  useEffect(() => {
+    const loadTab = async () => {
+      try {
+        const savedTab = await AsyncStorage.getItem('activeTab');
+        if (savedTab && ['GANTT', 'BOARD', 'PROFILE', 'ADMIN'].includes(savedTab)) {
+          setActiveTab(savedTab as any);
+        }
+      } catch (e) {
+        console.error('Failed to load active tab', e);
+      }
+    };
+    loadTab();
+  }, []);
+
+  const handleTabChange = async (tab: 'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN') => {
+    setActiveTab(tab);
+    try {
+      await AsyncStorage.setItem('activeTab', tab);
+    } catch (e) {
+      console.error('Failed to save active tab', e);
+    }
+  };
+
   const now = new Date();
   const [filterYear, setFilterYear] = useState(getYear(now));
   const [filterWeek, setFilterWeek] = useState(getISOWeek(now));
@@ -339,7 +363,7 @@ function App({ user }: { user: User }) {
 
   const handleTaskClickGantt = (taskId: string) => {
     setHighlightedTaskId(taskId);
-    setActiveTab('BOARD');
+    handleTabChange('BOARD');
   };
 
   const handleSaveProject = async (projectData: Partial<Project>) => {
@@ -670,13 +694,13 @@ function App({ user }: { user: User }) {
         <View style={{flexDirection: 'row', alignItems: 'center'}}>
           {activeTab === 'BOARD' && (
             <TouchableOpacity 
-              onPress={() => { setActiveTab('GANTT'); setHighlightedTaskId(null); }} 
+              onPress={() => { handleTabChange('GANTT'); setHighlightedTaskId(null); }} 
               style={styles.backButton}
             >
               <Text style={styles.backButtonText}>← Voltar</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity onPress={() => { setActiveTab('GANTT'); setHighlightedTaskId(null); }}>
+          <TouchableOpacity onPress={() => { handleTabChange('GANTT'); setHighlightedTaskId(null); }}>
             <Text style={styles.appName}>Controle de Projetos Adarco</Text>
           </TouchableOpacity>
         </View>
@@ -712,13 +736,13 @@ function App({ user }: { user: User }) {
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tab, activeTab === 'GANTT' && styles.activeTab]}
-            onPress={() => setActiveTab('GANTT')}
+            onPress={() => handleTabChange('GANTT')}
           >
             <Text style={[styles.tabText, activeTab === 'GANTT' && styles.activeTabText]}>Timeline View</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tab, activeTab === 'BOARD' && styles.activeTab]}
-            onPress={() => setActiveTab('BOARD')}
+            onPress={() => handleTabChange('BOARD')}
           >
             <Text style={[styles.tabText, activeTab === 'BOARD' && styles.activeTabText]}>Board View</Text>
           </TouchableOpacity>
@@ -739,7 +763,7 @@ function App({ user }: { user: User }) {
                 backgroundColor: 'var(--bg-card)', borderRadius: 8, padding: 8,
                 shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, borderWidth: 1, borderColor: 'var(--border)'
               }}>
-                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6, marginBottom: 4 }} onPress={() => { setActiveTab('PROFILE'); setProfileMenuOpen(false); }}>
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6, marginBottom: 4 }} onPress={() => { handleTabChange('PROFILE'); setProfileMenuOpen(false); }}>
                   <UserIcon size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
                   <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>Editar perfil</Text>
                 </TouchableOpacity>
@@ -747,7 +771,7 @@ function App({ user }: { user: User }) {
                   <Moon size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
                   <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>{theme === 'light' ? 'Tema Escuro' : 'Tema Claro'}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6 }} onPress={() => { setActiveTab('ADMIN'); setProfileMenuOpen(false); }}>
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 6 }} onPress={() => { handleTabChange('ADMIN'); setProfileMenuOpen(false); }}>
                   <Settings size={16} color="var(--text-secondary)" style={{ marginRight: 8 }} />
                   <Text style={{ fontSize: 14, color: 'var(--text-secondary)', fontWeight: '500' }}>Configuração</Text>
                 </TouchableOpacity>
@@ -767,7 +791,7 @@ function App({ user }: { user: User }) {
         {activeTab === 'ADMIN' ? (
           <AdminScreen />
         ) : activeTab === 'PROFILE' ? (
-          <ProfileScreen goBack={() => setActiveTab('GANTT')} user={user} />
+          <ProfileScreen goBack={() => handleTabChange('GANTT')} user={user} />
         ) : projects.length === 0 ? (
           <View style={styles.emptyStateContainer}>
             <View style={styles.emptyStateIconWrapper}>
@@ -1325,6 +1349,18 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   // Generate Days Header
   const daysArray = Array.from({ length: TIMELINE_DAYS }).map((_, i) => addDays(timelineStart, i));
 
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+
+  const toggleProjectCollapse = (projectId: string) => {
+    const newCollapsed = new Set(collapsedProjects);
+    if (newCollapsed.has(projectId)) {
+      newCollapsed.delete(projectId);
+    } else {
+      newCollapsed.add(projectId);
+    }
+    setCollapsedProjects(newCollapsed);
+  };
+
   const headerScrollRef = useRef<ScrollView>(null);
   
   const handleBodyScroll = (event: any) => {
@@ -1337,12 +1373,14 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   const rows: RenderRow[] = [];
   projects.forEach(p => {
     rows.push({ type: 'project', data: p });
-    p.tasks.forEach(t => {
-      rows.push({ type: 'task', data: t });
-      if (t.subtasks && t.subtasks.length > 0) {
-        t.subtasks.forEach(st => rows.push({ type: 'subtask', data: st, parentTaskId: t.id }));
-      }
-    });
+    if (!collapsedProjects.has(p.id)) {
+      p.tasks.forEach(t => {
+        rows.push({ type: 'task', data: t });
+        if (t.subtasks && t.subtasks.length > 0) {
+          t.subtasks.forEach(st => rows.push({ type: 'subtask', data: st, parentTaskId: t.id }));
+        }
+      });
+    }
   });
 
   return (
@@ -1392,14 +1430,25 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               const isLate = p.status === 'LATE';
               return (
                 <View key={`lp-${p.id}`} style={[styles.rowBase, styles.projectRow, isLate && { borderLeftWidth: 3, borderLeftColor: 'var(--danger)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}>
-                  <TouchableOpacity style={{ flex: 2, justifyContent: 'center' }} onPress={() => onEditRequest({ type: 'project', isNew: false, projectData: p })}>
-                    <Text style={[styles.cellText, styles.projectTitleText]} numberOfLines={1}>{p.title}</Text>
-                    {(p.department || p.owner) && (
-                      <Text style={{color: 'var(--text-muted)', fontSize: 10, marginTop: 2}} numberOfLines={1}>
-                        {[p.department, p.owner].filter(Boolean).join(' • ')}
-                      </Text>
+                  <View style={{ flex: 2, flexDirection: 'row', alignItems: 'center' }}>
+                    {p.tasks && p.tasks.length > 0 && (
+                      <TouchableOpacity onPress={() => toggleProjectCollapse(p.id)} style={{ marginRight: 4, padding: 4 }}>
+                        {collapsedProjects.has(p.id) ? (
+                          <ChevronRight size={16} color="var(--text-main)" />
+                        ) : (
+                          <ChevronDown size={16} color="var(--text-main)" />
+                        )}
+                      </TouchableOpacity>
                     )}
-                  </TouchableOpacity>
+                    <TouchableOpacity style={{ flex: 1, justifyContent: 'center', marginLeft: p.tasks && p.tasks.length > 0 ? 0 : 24 }} onPress={() => onEditRequest({ type: 'project', isNew: false, projectData: p })}>
+                      <Text style={[styles.cellText, styles.projectTitleText]} numberOfLines={1}>{p.title}</Text>
+                      {(p.department || p.owner) && (
+                        <Text style={{color: 'var(--text-muted)', fontSize: 10, marginTop: 2}} numberOfLines={1}>
+                          {[p.department, p.owner].filter(Boolean).join(' • ')}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                   <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center' }}>
                      <TouchableOpacity style={styles.iconButton} onPress={() => onEditRequest({ type: 'task', isNew: true, parentProjectId: p.id })}>
                        <Text style={styles.iconButtonText}>+ Add Tarefa</Text>
@@ -1429,7 +1478,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lt-${task.id}`} style={[styles.rowBase, styles.taskRow]}>
-                  <TouchableOpacity style={{ flex: 2, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onTaskPress(task.id)}>
+                  <TouchableOpacity style={{ flex: 2, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })}>
                     <CornerDownRight size={14} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor }]} />
                     <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }]} numberOfLines={1}>{task.title}</Text>
@@ -1649,6 +1698,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 // -------------------------------------------------------------
 const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], onEditRequest: any, highlightedTaskId?: string | null }) => {
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const columns = [
     { id: 'NOT_STARTED', title: 'NÃO INICIADO', color: 'var(--text-secondary)' },
@@ -1688,10 +1738,24 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
   };
 
   return (
-    <ScrollView horizontal style={styles.boardContainer}>
-      {columns.map(col => {
-        const colTasks = tasks.filter(t => t.status === col.id || (col.id === 'IN_PROGRESS' && t.status === 'IN_PROGRESS'));
-        return (
+    <View style={styles.boardContainer}>
+      <View style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center', backgroundColor: 'var(--bg-card)', paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: 'var(--border)' }}>
+        <Search size={18} color="var(--text-muted)" style={{ marginRight: 8 }} />
+        <TextInput
+          style={[{ flex: 1, borderWidth: 0, marginBottom: 0, backgroundColor: 'transparent', paddingHorizontal: 0, color: 'var(--text-main)', height: 40, outlineStyle: 'none' } as any]}
+          placeholder="Pesquisar tarefas..."
+          placeholderTextColor="var(--text-muted)"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+      <ScrollView horizontal style={{ flex: 1, overflow: 'visible' }}>
+        {columns.map(col => {
+          const colTasks = tasks.filter(t => 
+            (t.status === col.id || (col.id === 'IN_PROGRESS' && t.status === 'IN_PROGRESS')) &&
+            t.title.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+          return (
           <div 
             key={col.id} 
             style={{
@@ -1760,7 +1824,8 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
           </div>
         );
       })}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
