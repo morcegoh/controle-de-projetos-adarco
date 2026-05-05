@@ -831,33 +831,36 @@ function App({ user }: { user: User }) {
 
   const processedProjects = projects.map(p => {
     const today = startOfDay(new Date());
+    const roundedProgress = Math.round(p.progress || 0);
     let status = p.status;
     const targetDate = p.forecastDate;
     
-    const isProjectLate = p.progress < 100 && p.status !== 'COMPLETED' && p.status !== 'CANCELED' && targetDate && today > startOfDay(parseISO(targetDate));
+    const isProjectLate = roundedProgress < 100 && p.status !== 'COMPLETED' && p.status !== 'CANCELED' && targetDate && today > startOfDay(parseISO(targetDate));
     if (isProjectLate) status = 'LATE';
-    else if (p.progress === 100) status = p.status === 'CANCELED' ? 'CANCELED' : 'COMPLETED';
+    else if (roundedProgress >= 100) status = p.status === 'CANCELED' ? 'CANCELED' : 'COMPLETED';
     
     const tasks = p.tasks.map(t => {
+       const roundedTProgress = Math.round(t.progress || 0);
        let tStatus = t.status;
        const tTargetDate = t.forecastDate;
-       const isTaskLate = t.progress < 100 && t.status !== 'COMPLETED' && t.status !== 'CANCELED' && tTargetDate && today > startOfDay(parseISO(tTargetDate));
+       const isTaskLate = roundedTProgress < 100 && t.status !== 'COMPLETED' && t.status !== 'CANCELED' && tTargetDate && today > startOfDay(parseISO(tTargetDate));
        if (isTaskLate) tStatus = 'LATE';
-       else if (t.progress === 100) tStatus = t.status === 'CANCELED' ? 'CANCELED' : 'COMPLETED';
+       else if (roundedTProgress >= 100) tStatus = t.status === 'CANCELED' ? 'CANCELED' : 'COMPLETED';
 
        const subtasks = t.subtasks.map(st => {
+           const roundedSTProgress = Math.round(st.progress || 0);
            let stStatus = st.status;
            const stTargetDate = st.forecastDate;
-           const isSubtaskLate = st.progress < 100 && st.status !== 'COMPLETED' && st.status !== 'CANCELED' && stTargetDate && today > startOfDay(parseISO(stTargetDate));
+           const isSubtaskLate = roundedSTProgress < 100 && st.status !== 'COMPLETED' && st.status !== 'CANCELED' && stTargetDate && today > startOfDay(parseISO(stTargetDate));
            if (isSubtaskLate) stStatus = 'LATE';
-           else if (st.progress === 100) stStatus = st.status === 'CANCELED' ? 'CANCELED' : 'COMPLETED';
-           return { ...st, status: stStatus };
+           else if (roundedSTProgress >= 100) stStatus = st.status === 'CANCELED' ? 'CANCELED' : 'COMPLETED';
+           return { ...st, status: stStatus, progress: roundedSTProgress };
        });
 
-       return { ...t, status: tStatus, subtasks };
+       return { ...t, status: tStatus, progress: roundedTProgress, subtasks };
     });
 
-    return { ...p, status, tasks };
+    return { ...p, status, progress: roundedProgress, tasks };
   });
 
   // Flatten tasks for board view
@@ -1585,16 +1588,27 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   // Generate Days Header
   const daysArray = Array.from({ length: TIMELINE_DAYS }).map((_, i) => addDays(timelineStart, i));
 
-  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(() => new Set(projects.map(p => p.id)));
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
-  const toggleProjectCollapse = (projectId: string) => {
-    const newCollapsed = new Set(collapsedProjects);
-    if (newCollapsed.has(projectId)) {
-      newCollapsed.delete(projectId);
+  const toggleProjectExpansion = (projectId: string) => {
+    const newExpanded = new Set(expandedProjects);
+    if (newExpanded.has(projectId)) {
+      newExpanded.delete(projectId);
     } else {
-      newCollapsed.add(projectId);
+      newExpanded.add(projectId);
     }
-    setCollapsedProjects(newCollapsed);
+    setExpandedProjects(newExpanded);
+  };
+
+  const toggleTaskExpansion = (taskId: string) => {
+    const newExpanded = new Set(expandedTasks);
+    if (newExpanded.has(taskId)) {
+      newExpanded.delete(taskId);
+    } else {
+      newExpanded.add(taskId);
+    }
+    setExpandedTasks(newExpanded);
   };
 
   const [leftWidth, setLeftWidth] = useState(isMobile ? 250 : 550);
@@ -1631,7 +1645,8 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   
   projects.forEach(p => {
     // Hidden concluded/closed projects if they finished before the Monday of the current week (meaning they were finished in a previous week)
-    const isFinished = p.status === 'COMPLETED' || p.progress === 100 || p.status === 'CANCELED';
+    const roundedPProgress = Math.round(p.progress || 0);
+    const isFinished = p.status === 'COMPLETED' || roundedPProgress >= 100 || p.status === 'CANCELED';
     const finishDate = p.endDate ? (typeof p.endDate === 'string' ? parseISO(p.endDate) : p.endDate) : (p.forecastDate ? (typeof p.forecastDate === 'string' ? parseISO(p.forecastDate) : p.forecastDate) : null);
     
     // Timeline window ends at timelineStart + TIMELINE_DAYS
@@ -1643,10 +1658,10 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
     }
 
     rows.push({ type: 'project', data: p });
-    if (!collapsedProjects.has(p.id)) {
+    if (expandedProjects.has(p.id)) {
       p.tasks.forEach(t => {
         rows.push({ type: 'task', data: t });
-        if (t.subtasks && t.subtasks.length > 0) {
+        if (expandedTasks.has(t.id) && t.subtasks && t.subtasks.length > 0) {
           t.subtasks.forEach(st => rows.push({ type: 'subtask', data: st, parentTaskId: t.id }));
         }
       });
@@ -1724,11 +1739,11 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                 <View key={`lp-${p.id}`} style={[styles.rowBase, styles.projectRow, isLate && { borderLeftWidth: 3, borderLeftColor: 'var(--danger)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}>
                   <View style={{ flex: isMobile ? 5 : 3, flexDirection: 'row', alignItems: 'center' }}>
                     {p.tasks && p.tasks.length > 0 && (
-                      <TouchableOpacity onPress={() => toggleProjectCollapse(p.id)} style={{ marginRight: 4, padding: 4 }}>
-                        {collapsedProjects.has(p.id) ? (
-                          <ChevronRight size={16} color="var(--text-main)" />
-                        ) : (
+                      <TouchableOpacity onPress={() => toggleProjectExpansion(p.id)} style={{ marginRight: 4, padding: 4 }}>
+                        {expandedProjects.has(p.id) ? (
                           <ChevronDown size={16} color="var(--text-main)" />
+                        ) : (
+                          <ChevronRight size={16} color="var(--text-main)" />
                         )}
                       </TouchableOpacity>
                     )}
@@ -1776,16 +1791,24 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lt-${task.id}`} style={[styles.rowBase, styles.taskRow]}>
-                  <TouchableOpacity style={{ flex: isMobile ? 5 : 3, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })} title={task.title}>
-                    <CornerDownRight size={14} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
-                    <View style={[styles.inlineRiskDot, { backgroundColor: riskColor }]} />
-                    <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }, isMobile && { fontSize: 11 }]} title={task.title}>{task.title}</Text>
-                    {!isMobile && (
-                      <TouchableOpacity onPress={() => onEditRequest({ type: 'subtask', isNew: true, parentTaskId: task.id })} style={{ padding: 2, backgroundColor: 'var(--bg-card)', borderRadius: 4, borderWidth: 1, borderColor: 'var(--border)' }}>
-                        <Text style={{ fontSize: 10, color: 'var(--text-secondary)' }}>+ Sub</Text>
+                  <View style={{ flex: isMobile ? 5 : 3, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }}>
+                    {task.subtasks && task.subtasks.length > 0 ? (
+                      <TouchableOpacity onPress={() => toggleTaskExpansion(task.id)} style={{ padding: 4 }}>
+                        {expandedTasks.has(task.id) ? <ChevronDown size={14} color="var(--text-secondary)" /> : <ChevronRight size={14} color="var(--text-secondary)" />}
                       </TouchableOpacity>
+                    ) : (
+                      <CornerDownRight size={14} color="var(--border)" style={{ marginRight: 6, marginLeft: 6, marginTop: -2 }} />
                     )}
-                  </TouchableOpacity>
+                    <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })} title={task.title}>
+                      <View style={[styles.inlineRiskDot, { backgroundColor: riskColor }]} />
+                      <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }, isMobile && { fontSize: 11 }]} title={task.title}>{task.title}</Text>
+                      {!isMobile && (
+                        <TouchableOpacity onPress={() => onEditRequest({ type: 'subtask', isNew: true, parentTaskId: task.id })} style={{ padding: 2, backgroundColor: 'var(--bg-card)', borderRadius: 4, borderWidth: 1, borderColor: 'var(--border)' }}>
+                          <Text style={{ fontSize: 10, color: 'var(--text-secondary)' }}>+ Sub</Text>
+                        </TouchableOpacity>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                   {!isMobile && <Text style={[styles.cellText, styles.mutedText, { flex: 1.5 }]}>{task.assignees.join(', ')}</Text>}
                   
                   <TouchableOpacity style={{ flex: isMobile ? 1.5 : 0.8, alignItems: 'center' }} onPress={() => onUpdateProgress(task.id, task.progress >= 100 ? 0 : task.progress + 25)}>
@@ -1862,19 +1885,24 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
           <View style={{ flexDirection: 'column' }}>
             {rows.map((row, idx) => {
               const data = row.data;
+              const roundedProgress = Math.round(data.progress || 0);
               const rawStartOffset = safeDifferenceInDays(data.startDate, timelineStart);
               
-              const isFinishedRow = data.status === 'COMPLETED' || data.progress === 100 || data.status === 'CANCELED';
-              
-              // Explicitly use endDate if finished, otherwise use forecastDate. 
-              // Fallback to startDate if others are missing to prevent bar stretching to 'today' by accident.
+              const isFinishedRow = data.status === 'COMPLETED' || roundedProgress >= 100 || data.status === 'CANCELED';
+              const today = startOfDay(new Date());
+
+              // Determine the logical end of the bar
               let boundaryDate: string | Date = data.startDate;
-              if (isFinishedRow && data.endDate) {
-                boundaryDate = data.endDate;
-              } else if (data.forecastDate) {
-                boundaryDate = data.forecastDate;
-              } else if (data.endDate) {
-                boundaryDate = data.endDate;
+              if (isFinishedRow) {
+                // If finished, strictly use endDate or forecastDate
+                boundaryDate = data.endDate || data.forecastDate || data.startDate;
+              } else {
+                // If in progress
+                boundaryDate = data.forecastDate || data.startDate;
+                // If late and not finished, stretch bar to today
+                if (data.status === 'LATE' && today > parseISO(String(boundaryDate))) {
+                  boundaryDate = today;
+                }
               }
 
               const rawEndOffset = safeDifferenceInDays(boundaryDate, timelineStart);
@@ -1889,62 +1917,61 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               const safeDuration = visibleDuration;
 
               // Colors based on project vs task and progress
-              let isLateItem = false;
-              let blockStyle: any = {};
+              const isCanceled = data.status === 'CANCELED';
+              const isLateItem = data.status === 'LATE' && roundedProgress < 100;
               
-              if (row.type === 'project') {
-                isLateItem = data.status === 'LATE' && data.progress < 100;
-                const isCanceled = data.status === 'CANCELED';
-                blockStyle = {
-                  backgroundColor: isCanceled ? 'rgba(239, 68, 68, 0.15)' : (isLateItem ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'),
-                  borderColor: (isLateItem || isCanceled) ? 'var(--danger)' : 'var(--primary)',
-                  borderWidth: 1,
-                  shadowColor: isLateItem ? 'var(--danger)' : 'transparent',
-                  shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: isLateItem ? 0.6 : 0,
-                  shadowRadius: isLateItem ? 8 : 0,
-                  elevation: isLateItem ? 4 : 0,
-                  barColor: isCanceled ? 'var(--danger)' : (isLateItem ? 'var(--text-muted)' : 'var(--text-muted)'),
-                  displayProgress: isCanceled ? 100 : data.progress
-                };
-              } else {
-                isLateItem = data.status === 'LATE' && data.progress < 100;
-                const isCanceled = data.status === 'CANCELED';
-                let barColor = row.type === 'subtask' ? '#6EE7B7' : '#0BFD71'; 
-                let areaColor = row.type === 'subtask' ? 'rgba(110, 231, 183, 0.15)' : 'rgba(11, 253, 113, 0.2)';
-                let useGradient = true;
-                
-                if (isCanceled) {
-                  barColor = 'var(--danger)';
-                  areaColor = 'rgba(239, 68, 68, 0.2)';
-                  useGradient = false;
-                } else if (isLateItem) {
-                  // Keep normal green/subtask colors, but maybe a slight area tint
-                  areaColor = 'rgba(239, 68, 68, 0.1)';
-                } else if (data.progress === 100) {
-                   barColor = 'var(--primary)'; // Solido
-                   areaColor = 'rgba(16, 185, 129, 0.2)';
-                   useGradient = false;
-                } else if (data.progress === 0) {
-                   barColor = 'var(--text-muted)'; // Slate (Not Started)
-                   areaColor = 'rgba(100, 116, 139, 0.2)';
-                   useGradient = false;
-                }
+              let areaColor = 'rgba(16, 185, 129, 0.1)'; // Default green area
+              let borderColor = '#10b981'; // Default green border
+              let barColor = '#10b981'; // Default green bar
+              let shadowColor = '#10b981'; 
+              let glowOpacity = 0.4;
 
-                blockStyle = {
-                   areaColor,
-                   barColor,
-                   useGradient,
-                   borderColor: (isLateItem || isCanceled) ? 'var(--danger)' : 'rgba(0,0,0,0.05)',
-                   borderWidth: (isLateItem || isCanceled) ? 1 : 0,
-                   shadowColor: isLateItem ? 'var(--danger)' : 'transparent',
-                   shadowOffset: { width: 0, height: 0 },
-                   shadowOpacity: isLateItem ? 0.7 : 0,
-                   shadowRadius: isLateItem ? 10 : 0,
-                   elevation: isLateItem ? 5 : 0,
-                   displayProgress: isCanceled ? 100 : data.progress
-                };
+              if (row.type === 'project') {
+                // Project Normal: Verde claro area
+                areaColor = 'rgba(167, 243, 208, 0.3)'; 
+                if (isLateItem) {
+                  borderColor = '#ef4444';
+                  shadowColor = '#ef4444';
+                  glowOpacity = 0.6;
+                } else if (isCanceled) {
+                  areaColor = 'rgba(239, 68, 68, 0.2)';
+                  barColor = '#ef4444';
+                  borderColor = '#ef4444';
+                  shadowColor = '#ef4444';
+                  glowOpacity = 0.6;
+                }
+              } else {
+                // Task/Subtask Normal: Verde um pouco mais escuro
+                areaColor = 'rgba(16, 185, 129, 0.25)';
+                barColor = row.type === 'subtask' ? '#34d399' : '#10b981';
+                
+                if (isLateItem) {
+                  borderColor = '#ef4444';
+                  shadowColor = '#ef4444';
+                  glowOpacity = 0.7;
+                } else if (isCanceled) {
+                  areaColor = 'rgba(239, 68, 68, 0.2)';
+                  barColor = '#ef4444';
+                  borderColor = '#ef4444';
+                  shadowColor = '#ef4444';
+                  glowOpacity = 0.7;
+                }
               }
+
+              const blockStyle = {
+                areaColor: areaColor,
+                backgroundColor: areaColor, // Fallback for project
+                barColor: barColor,
+                borderColor: borderColor,
+                borderWidth: 1.5,
+                shadowColor: shadowColor,
+                shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: glowOpacity,
+                shadowRadius: 10,
+                elevation: 5,
+                displayProgress: isCanceled ? 100 : roundedProgress,
+                useGradient: !isCanceled && !isLateItem
+              };
 
               return (
                 <View key={`rt-${row.type}-${data.id}`} style={[
