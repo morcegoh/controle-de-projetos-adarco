@@ -96,6 +96,7 @@ type Project = {
   forecastDate: string;
   endDate?: string;
   status: string;
+  objective?: string;
   tasks: Task[];
 };
 
@@ -314,6 +315,7 @@ function App({ user }: { user: User }) {
   const now = new Date();
   const [filterYear, setFilterYear] = useState(getYear(now));
   const [filterWeek, setFilterWeek] = useState(getISOWeek(now));
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
 
   const getTimelineStart = () => {
     let d = new Date(filterYear, 0, 4); // Jan 4th is always in week 1
@@ -416,6 +418,7 @@ function App({ user }: { user: User }) {
           forecastDate: p.forecast_date,
           endDate: (avgProgress === 100 || p.status === 'COMPLETED' || p.status === 'CANCELED') ? (p.end_date || computedProjectEndDate) : undefined,
           status: finalProjectStatus,
+          objective: p.objective,
           tasks: tasksWithSubtasks
         };
       });
@@ -449,6 +452,7 @@ function App({ user }: { user: User }) {
         forecast_date: projectData.forecastDate,
         end_date: (projectData.progress === 100 || projectData.status === 'CANCELED') ? (projectData.endDate || new Date().toISOString().split('T')[0]) : null,
         status: projectData.status,
+        objective: projectData.objective,
         user_id: user.id
       };
       
@@ -814,6 +818,10 @@ function App({ user }: { user: User }) {
     return { ...p, status, progress: roundedProgress, tasks };
   });
 
+  const timelineProjects = processedProjects.filter(p => 
+    p.title.toLowerCase().includes(projectSearchQuery.toLowerCase())
+  );
+
   // Flatten tasks for board view
   const allTasks = processedProjects.flatMap(p => p.tasks.map(t => ({ ...t, projectName: p.title, projectId: p.id })));
 
@@ -837,43 +845,73 @@ function App({ user }: { user: User }) {
             </TouchableOpacity>
 
             {!isMobile && activeTab === 'GANTT' && (
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 24}}>
-                <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 14}}>Timeline:</Text>
-                <select 
-                  style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
-                  value={filterYear}
-                  onChange={(e) => setFilterYear(Number(e.target.value))}
-                >
-                  {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-                <select
-                  style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
-                  value={filterWeek}
-                  onChange={(e) => setFilterWeek(Number(e.target.value))}
-                >
-                  {Array.from({length: 53}).map((_, i) => <option key={i+1} value={i+1}>{isMobile ? `S${i+1}` : `Semana ${i+1}`}</option>)}
-                </select>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 12, marginLeft: 24}}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'var(--input-bg)', paddingHorizontal: 12, borderRadius: 6, borderWidth: 1, borderColor: 'var(--border)', height: 32, width: 220 }}>
+                  <Search size={14} color="var(--text-muted)" style={{ marginRight: 6 }} />
+                  <TextInput
+                    style={[{ flex: 1, borderWidth: 0, marginBottom: 0, backgroundColor: 'transparent', paddingHorizontal: 0, color: 'var(--text-main)', fontSize: 13, height: '100%', outlineStyle: 'none' } as any]}
+                    placeholder="Pesquisar projetos..."
+                    placeholderTextColor="var(--text-muted)"
+                    value={projectSearchQuery}
+                    onFocus={(e: any) => e.target.select()}
+                    onChangeText={setProjectSearchQuery}
+                  />
+                </View>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                  <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 13}}>Ano:</Text>
+                  <select 
+                    style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '8px', paddingRight: '20px', paddingTop: '4px', paddingBottom: '4px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
+                    value={filterYear}
+                    onChange={(e) => setFilterYear(Number(e.target.value))}
+                  >
+                    {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </View>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                  <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 13}}>Semana:</Text>
+                  <select
+                    style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '8px', paddingRight: '20px', paddingTop: '4px', paddingBottom: '4px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
+                    value={filterWeek}
+                    onChange={(e) => setFilterWeek(Number(e.target.value))}
+                  >
+                    {Array.from({length: 53}).map((_, i) => <option key={i+1} value={i+1}>{isMobile ? `S${i+1}` : `${i+1}`}</option>)}
+                  </select>
+                </View>
               </View>
             )}
           </View>
 
           {isMobile && activeTab === 'GANTT' && (
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4}}>
-              <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 14}}>Timeline:</Text>
-              <select 
-                style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '12px', appearance: 'auto' as any }}
-                value={filterYear}
-                onChange={(e) => setFilterYear(Number(e.target.value))}
-              >
-                {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <select
-                style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '12px', appearance: 'auto' as any }}
-                value={filterWeek}
-                onChange={(e) => setFilterWeek(Number(e.target.value))}
-              >
-                {Array.from({length: 53}).map((_, i) => <option key={i+1} value={i+1}>{`S${i+1}`}</option>)}
-              </select>
+            <View style={{flexDirection: 'column', gap: 8, marginTop: 8, width: '100%'}}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'var(--input-bg)', paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: 'var(--border)', height: 36 }}>
+                <Search size={16} color="var(--text-muted)" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={[{ flex: 1, borderWidth: 0, marginBottom: 0, backgroundColor: 'transparent', paddingHorizontal: 0, color: 'var(--text-main)', fontSize: 14, height: '100%', outlineStyle: 'none' } as any]}
+                  placeholder="Pesquisar projetos..."
+                  placeholderTextColor="var(--text-muted)"
+                  value={projectSearchQuery}
+                  onFocus={(e: any) => e.target.select()}
+                  onChangeText={setProjectSearchQuery}
+                />
+              </View>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 12}}>Ano:</Text>
+                <select 
+                  style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '12px', appearance: 'auto' as any }}
+                  value={filterYear}
+                  onChange={(e) => setFilterYear(Number(e.target.value))}
+                >
+                  {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 12, marginLeft: 8}}>Sem/S:</Text>
+                <select
+                  style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--input-bg)', color: 'var(--text-main)', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '12px', appearance: 'auto' as any }}
+                  value={filterWeek}
+                  onChange={(e) => setFilterWeek(Number(e.target.value))}
+                >
+                  {Array.from({length: 53}).map((_, i) => <option key={i+1} value={i+1}>{`S${i+1}`}</option>)}
+                </select>
+              </View>
             </View>
           )}
 
@@ -965,7 +1003,7 @@ function App({ user }: { user: User }) {
           </View>
         ) : activeTab === 'GANTT' ? (
           <GanttView 
-            projects={processedProjects} 
+            projects={timelineProjects} 
             timelineStart={timelineStart}
             expandedProjects={expandedProjects}
             setExpandedProjects={setExpandedProjects}
@@ -1083,7 +1121,11 @@ const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSave
         setErrorMessage('A previsão de término do projeto é obrigatória.');
         return;
       }
-      onSaveProject({ id: data.id, title, department, owner, startDate, forecastDate, endDate, status, progress });
+      if (!objective.trim()) {
+        setErrorMessage('O objetivo do projeto é obrigatório.');
+        return;
+      }
+      onSaveProject({ id: data.id, title, department, owner, startDate, forecastDate, endDate, status, progress, objective });
     } else {
       const assignees = assigneesStr.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       
@@ -1234,6 +1276,17 @@ Por favor, em caso de dúvidas fale comigo.`);
                 <option value="COMPLETED">CONCLUÍDO</option>
                 <option value="CANCELED">CANCELADO</option>
               </select>
+
+              <View style={{marginTop: 10}}>
+                <Text style={styles.label}>Objetivo do Projeto (Obrigatório)</Text>
+                <textarea 
+                  style={{ ...webInputDOMStyle, height: 80, resize: 'none' }} 
+                  value={objective} 
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => setObjective(e.target.value)} 
+                  placeholder="Descreva o objetivo macro deste projeto..." 
+                />
+              </View>
             </>
           )}
 
@@ -1329,21 +1382,23 @@ Por favor, em caso de dúvidas fale comigo.`);
                 />
               </View>
 
-              <Text style={styles.label}>Objetivo da Tarefa</Text>
+              <Text style={styles.label}>Objetivo da Tarefa {!item.isNew && <Text style={{fontSize: 10, color: 'var(--text-muted)'}}>(Não editável após criação)</Text>}</Text>
               <textarea 
-                style={{ ...webInputDOMStyle, height: 80, resize: 'none', marginBottom: 12 }} 
+                style={{ ...webInputDOMStyle, height: 80, resize: 'none', marginBottom: 12, opacity: item.isNew ? 1 : 0.6, cursor: item.isNew ? 'text' : 'not-allowed' }} 
                 value={objective} 
                 onFocus={(e) => e.target.select()}
                 onChange={(e) => setObjective(e.target.value)} 
+                disabled={!item.isNew}
                 placeholder="Descreva o que a tarefa deve resolver..." 
               />
 
-              <Text style={styles.label}>Anotações Gerais</Text>
+              <Text style={styles.label}>Anotações Gerais {!item.isNew && <Text style={{fontSize: 10, color: 'var(--text-muted)'}}>(Não editável após criação)</Text>}</Text>
               <textarea 
-                style={{ ...webInputDOMStyle, height: 80, resize: 'none', marginBottom: 20 }} 
+                style={{ ...webInputDOMStyle, height: 80, resize: 'none', marginBottom: 20, opacity: item.isNew ? 1 : 0.6, cursor: item.isNew ? 'text' : 'not-allowed' }} 
                 value={updates} 
                 onFocus={(e) => e.target.select()}
                 onChange={(e) => setUpdates(e.target.value)} 
+                disabled={!item.isNew}
                 placeholder="Destaques, bloqueios ou informações..." 
               />
 
