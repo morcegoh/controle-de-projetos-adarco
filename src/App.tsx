@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent, TextInput, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { addDays, format, differenceInDays, parseISO, startOfDay, isValid, getISOWeek, getYear, setISOWeek, setYear, startOfISOWeek, setWeek, startOfWeek } from 'date-fns';
 
@@ -223,6 +223,10 @@ export default function AppWrapper() {
 
 function App({ user }: { user: User }) {
   const { theme, toggleTheme } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
+  const isSmallMobile = windowWidth < 480;
+
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN'>('GANTT');
@@ -435,7 +439,7 @@ function App({ user }: { user: User }) {
           progress: avgProgress,
           startDate: p.start_date,
           forecastDate: p.forecast_date,
-          endDate: avgProgress === 100 ? computedProjectEndDate : undefined,
+          endDate: (avgProgress === 100 || p.status === 'COMPLETED' || p.status === 'CANCELED') ? (p.end_date || computedProjectEndDate) : undefined,
           status: finalProjectStatus,
           tasks: tasksWithSubtasks
         };
@@ -693,10 +697,14 @@ function App({ user }: { user: User }) {
       if (newProgress === 100) {
         updateData.status = 'COMPLETED';
         updateData.end_date = new Date().toISOString().substring(0, 10);
-      } else if (newProgress > 0) {
-        updateData.status = 'IN_PROGRESS';
+        setActiveTab('BOARD');
       } else {
-        updateData.status = 'NOT_STARTED';
+        updateData.end_date = null;
+        if (newProgress > 0) {
+          updateData.status = 'IN_PROGRESS';
+        } else {
+          updateData.status = 'NOT_STARTED';
+        }
       }
 
       const { error } = await supabase.from('subtasks').update(updateData).eq('id', subtaskId);
@@ -730,10 +738,17 @@ function App({ user }: { user: User }) {
     try {
       let status = 'IN_PROGRESS';
       if (newProgress === 0) status = 'NOT_STARTED';
-      if (newProgress === 100) status = 'COMPLETED';
-
+      if (newProgress === 100) {
+        status = 'COMPLETED';
+        setActiveTab('BOARD');
+      }
+      
       const updateData: any = { progress: newProgress, status };
-      if (newProgress === 100) updateData.end_date = new Date().toISOString().substring(0, 10);
+      if (newProgress === 100) {
+        updateData.end_date = new Date().toISOString().substring(0, 10);
+      } else {
+        updateData.end_date = null;
+      }
 
       const { error } = await supabase.from('tasks').update(updateData).eq('id', taskId);
       if (error) throw error;
@@ -826,76 +841,35 @@ function App({ user }: { user: User }) {
   return (
     <View style={styles.container}>
       {/* Header - Glassmorphism */}
-      <View style={styles.header}>
-        <View style={{flexDirection: 'row', alignItems: 'center'}}>
-          {activeTab === 'BOARD' && (
-            <TouchableOpacity 
-              onPress={() => { handleTabChange('GANTT'); setHighlightedTaskId(null); }} 
-              style={styles.backButton}
-            >
-              <Text style={styles.backButtonText}>← Voltar</Text>
+      <View style={[styles.header, isMobile && { paddingHorizontal: 16, flexDirection: 'column', alignItems: 'stretch', gap: 12 }]}>
+        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            {activeTab === 'BOARD' && (
+              <TouchableOpacity 
+                onPress={() => { handleTabChange('GANTT'); setHighlightedTaskId(null); }} 
+                style={styles.backButton}
+              >
+                <Text style={styles.backButtonText}>←</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => { handleTabChange('GANTT'); setHighlightedTaskId(null); }}>
+              <Text style={[styles.appName, isMobile && { fontSize: 16 }]}>{isSmallMobile ? 'Adarco' : 'Controle Adarco'}</Text>
             </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={() => { handleTabChange('GANTT'); setHighlightedTaskId(null); }}>
-            <Text style={styles.appName}>Controle de Projetos Adarco</Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === 'GANTT' && (
-          <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
-            <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 14}}>Timeline:</Text>
-            <select 
-              style={{ ...webInputDOMStyle, marginBottom: 0, paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
-              value={filterYear}
-              onChange={(e) => setFilterYear(Number(e.target.value))}
-            >
-              {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
-            <select
-              style={{ ...webInputDOMStyle, marginBottom: 0, paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)' }}
-              value={filterWeek}
-              onChange={(e) => setFilterWeek(Number(e.target.value))}
-            >
-              {Array.from({length: 53}).map((_, i) => <option key={i+1} value={i+1}>Semana {i+1}</option>)}
-            </select>
           </View>
-        )}
 
-        <View style={styles.tabsContainer}>
-          {activeTab === 'BOARD' && (
-            <TouchableOpacity style={{ paddingHorizontal: 8, paddingVertical: 8, marginRight: 8, borderRadius: 6, borderWidth: 1, borderColor: 'var(--border)', backgroundColor: 'var(--bg-card)', justifyContent: 'center', alignItems: 'center' }} onPress={handleExportReport}>
-              <Download size={18} color="var(--text-secondary)" />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.addButton} onPress={() => setEditingItem({ type: 'project', isNew: true })}>
-            <Text style={styles.addButtonText}>+ Projeto</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'GANTT' && styles.activeTab]}
-            onPress={() => handleTabChange('GANTT')}
-          >
-            <Text style={[styles.tabText, activeTab === 'GANTT' && styles.activeTabText]}>Timeline View</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, activeTab === 'BOARD' && styles.activeTab]}
-            onPress={() => handleTabChange('BOARD')}
-          >
-            <Text style={[styles.tabText, activeTab === 'BOARD' && styles.activeTabText]}>Board View</Text>
-          </TouchableOpacity>
-          
-          <View style={{ position: 'relative', zIndex: 100 }}>
+          <View style={{ position: 'relative', zIndex: 110 }}>
             <TouchableOpacity style={{
-              width: 36, height: 36, borderRadius: 18, backgroundColor: 'var(--text-main)', 
-              justifyContent: 'center', alignItems: 'center', marginLeft: 16
+              width: 32, height: 32, borderRadius: 16, backgroundColor: 'var(--text-main)', 
+              justifyContent: 'center', alignItems: 'center'
             }} onPress={() => setProfileMenuOpen(!profileMenuOpen)}>
-              <Text style={{color: 'var(--bg-card)', fontWeight: 'bold', fontSize: 16}}>
+              <Text style={{color: 'var(--bg-card)', fontWeight: 'bold', fontSize: 14}}>
                 {(user?.user_metadata?.full_name?.[0] || user?.user_metadata?.displayName?.[0] || user?.email?.[0] || '?').toUpperCase()}
               </Text>
             </TouchableOpacity>
             
             {profileMenuOpen && (
               <View style={{
-                position: 'absolute', top: 44, right: 0, width: 180, 
+                position: 'absolute', top: 40, right: 0, width: 180, 
                 backgroundColor: 'var(--bg-card)', borderRadius: 8, padding: 8,
                 shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, borderWidth: 1, borderColor: 'var(--border)'
               }}>
@@ -918,6 +892,56 @@ function App({ user }: { user: User }) {
                 </TouchableOpacity>
               </View>
             )}
+          </View>
+        </View>
+
+        <View style={{ flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: 12, flexWrap: 'wrap' }}>
+          {activeTab === 'GANTT' && (
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+              <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 12}}>Timeline:</Text>
+              <select 
+                style={{ ...webInputDOMStyle, marginBottom: 0, paddingTop: '4px', paddingBottom: '4px', paddingLeft: '8px', paddingRight: '8px', width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)', fontSize: '12px' }}
+                value={filterYear}
+                onChange={(e) => setFilterYear(Number(e.target.value))}
+              >
+                {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <select
+                style={{ ...webInputDOMStyle, marginBottom: 0, paddingTop: '4px', paddingBottom: '4px', paddingLeft: '8px', paddingRight: '8px', width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)', fontSize: '12px' }}
+                value={filterWeek}
+                onChange={(e) => setFilterWeek(Number(e.target.value))}
+              >
+                {Array.from({length: 53}).map((_, i) => <option key={i+1} value={i+1}>{isMobile ? `S${i+1}` : `Semana ${i+1}`}</option>)}
+              </select>
+            </View>
+          )}
+
+          <View style={[styles.tabsContainer, isMobile && { width: '100%', justifyContent: 'space-between' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {activeTab === 'BOARD' && (
+                <TouchableOpacity style={{ paddingHorizontal: 8, paddingVertical: 8, marginRight: 8, borderRadius: 6, borderWidth: 1, borderColor: 'var(--border)', backgroundColor: 'var(--bg-card)', justifyContent: 'center', alignItems: 'center' }} onPress={handleExportReport}>
+                  <Download size={18} color="var(--text-secondary)" />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={[styles.addButton, isMobile && { marginRight: 8 }]} onPress={() => setEditingItem({ type: 'project', isNew: true })}>
+                <Text style={styles.addButtonText}>+ Projeto</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <TouchableOpacity 
+                style={[styles.tab, activeTab === 'GANTT' && styles.activeTab, isSmallMobile && { paddingHorizontal: 8 }]}
+                onPress={() => handleTabChange('GANTT')}
+              >
+                <Text style={[styles.tabText, activeTab === 'GANTT' && styles.activeTabText, isSmallMobile && { fontSize: 12 }]}>{isSmallMobile ? 'Gantt' : 'Timeline'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.tab, activeTab === 'BOARD' && styles.activeTab, isSmallMobile && { paddingHorizontal: 8 }]}
+                onPress={() => handleTabChange('BOARD')}
+              >
+                <Text style={[styles.tabText, activeTab === 'BOARD' && styles.activeTabText, isSmallMobile && { fontSize: 12 }]}>{isSmallMobile ? 'Kanban' : 'Board'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -1005,6 +1029,9 @@ const webInputDOMStyle = {
 };
 
 const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSaveTask, onSaveSubtask, onDeleteProject, onDeleteTask, onDeleteSubtask, onConvertTaskToSubtask, onConvertSubtaskToTask }: any) => {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
+  const isSmallMobile = windowWidth < 480;
   const isMasterUser = userEmail === 'heder.santos@adarco.com.br';
   const isProject = item.type === 'project';
   const isTask = item.type === 'task';
@@ -1057,7 +1084,7 @@ const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSave
         setErrorMessage('A previsão de término do projeto é obrigatória.');
         return;
       }
-      onSaveProject({ id: data.id, title, department, owner, startDate, forecastDate, endDate, status, progress: data.progress });
+      onSaveProject({ id: data.id, title, department, owner, startDate, forecastDate, endDate, status, progress });
     } else {
       const assignees = assigneesStr.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       
@@ -1131,8 +1158,8 @@ Por favor, em caso de dúvidas fale comigo.`);
 
   return (
     <View style={styles.modalOverlay}>
-      <View style={styles.modalContent}>
-        <Text style={styles.modalHeader}>{item.isNew ? 'Criar' : 'Editar'} {isProject ? 'Projeto' : isTask ? 'Tarefa' : 'Subtarefa'}</Text>
+      <View style={[styles.modalContent, isMobile && { width: '95%', padding: 20, borderRadius: 16 }]}>
+        <Text style={[styles.modalHeader, isMobile && { fontSize: 20, marginBottom: 16 }]}>{item.isNew ? 'Criar' : 'Editar'} {isProject ? 'Projeto' : isTask ? 'Tarefa' : 'Subtarefa'}</Text>
         
         {errorMessage ? (
           <View style={{backgroundColor: 'var(--danger-bg)', padding: 12, borderRadius: 8, marginBottom: 16, borderWidth: 1, borderColor: 'var(--danger)'}}>
@@ -1140,7 +1167,7 @@ Por favor, em caso de dúvidas fale comigo.`);
           </View>
         ) : null}
 
-        <ScrollView style={{maxHeight: Dimensions.get('window').height * 0.7}}>
+        <ScrollView style={{maxHeight: windowHeight * 0.75}}>
           <Text style={styles.label}>Título</Text>
           <TouchableOpacity style={{backgroundColor: 'transparent'}}>
              <input 
@@ -1183,7 +1210,17 @@ Por favor, em caso de dúvidas fale comigo.`);
                  <select 
                    style={webInputDOMStyle} 
                    value={status} 
-                   onChange={(e) => setStatus(e.target.value)}
+                   onChange={(e) => {
+                     const newStatus = e.target.value;
+                     setStatus(newStatus);
+                     if (newStatus === 'COMPLETED' || newStatus === 'CANCELED') {
+                       setProgress(100);
+                       if (!endDate) setEndDate(new Date().toISOString().split('T')[0]);
+                     } else {
+                       if (newStatus === 'NOT_STARTED') setProgress(0);
+                       setEndDate('');
+                     }
+                   }}
                  >
                    <option value="NOT_STARTED">NÃO INICIADO</option>
                    <option value="IN_PROGRESS">EM ANDAMENTO</option>
@@ -1258,9 +1295,14 @@ Por favor, em caso de dúvidas fale comigo.`);
                     onChange={(e) => {
                       const newStatus = e.target.value;
                       setStatus(newStatus);
-                      if (newStatus === 'COMPLETED' || newStatus === 'CANCELED') setProgress(100);
-                      else if (newStatus === 'NOT_STARTED') setProgress(0);
-                      else if (progress === 100 || progress === 0) setProgress(50);
+                      if (newStatus === 'COMPLETED' || newStatus === 'CANCELED') {
+                        setProgress(100);
+                        if (!endDate) setEndDate(new Date().toISOString().split('T')[0]);
+                      } else {
+                        if (newStatus === 'NOT_STARTED') setProgress(0);
+                        else if (progress === 100 || progress === 0) setProgress(50);
+                        setEndDate('');
+                      }
                     }}
                   >
                     <option value="NOT_STARTED">NÃO INICIADO</option>
@@ -1379,7 +1421,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                 <TouchableOpacity style={{backgroundColor: 'transparent'}}>
                    <input 
                      type="date"
-                     style={[webInputDOMStyle, (progress < 100 && status !== 'COMPLETED' && status !== 'CANCELED') && { opacity: 0.5, backgroundColor: 'var(--bg-hover)' }]} 
+                     style={{...webInputDOMStyle, ...((progress < 100 && status !== 'COMPLETED' && status !== 'CANCELED') ? { opacity: 0.5, backgroundColor: 'var(--bg-hover)' } : {})}} 
                      value={(progress === 100 || status === 'COMPLETED' || status === 'CANCELED') ? endDate : ''} 
                      disabled={(progress < 100 && status !== 'COMPLETED' && status !== 'CANCELED')}
                      onChange={(e) => setEndDate(e.target.value)} 
@@ -1512,6 +1554,9 @@ Por favor, em caso de dúvidas fale comigo.`);
 // GANTT VIEW COMPONENT
 // -------------------------------------------------------------
 const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskProgress, onEditRequest, onTaskPress }: { projects: Project[], timelineStart: Date, onUpdateProgress: (id: string, p: number) => void, onUpdateSubtaskProgress: (id: string, p: number) => void, onEditRequest: any, onTaskPress: (id: string) => void }) => {
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
+
   // Generate Days Header
   const daysArray = Array.from({ length: TIMELINE_DAYS }).map((_, i) => addDays(timelineStart, i));
 
@@ -1527,7 +1572,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
     setCollapsedProjects(newCollapsed);
   };
 
-  const [leftWidth, setLeftWidth] = useState(550);
+  const [leftWidth, setLeftWidth] = useState(isMobile ? 250 : 550);
   const isResizing = useRef(false);
 
   useEffect(() => {
@@ -1588,12 +1633,16 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
       {/* Pinned Headers Container */}
       <View style={styles.ganttHeaderRow}>
         <View style={[styles.leftPanel, styles.tableHeader, { width: leftWidth }]}>
-          <Text style={[styles.headerCell, { flex: 3 }]}>PROJETO / TAREFA</Text>
-          <Text style={[styles.headerCell, { flex: 1.5 }]}>ATRIBUÍDO</Text>
-          <Text style={[styles.headerCell, { flex: 0.8, textAlign: 'center' }]}>%</Text>
-          <Text style={[styles.headerCell, { flex: 1 }]}>INÍCIO</Text>
-          <Text style={[styles.headerCell, { flex: 1 }]}>PREVISÃO</Text>
-          <Text style={[styles.headerCell, { flex: 1 }]}>TÉRMINO</Text>
+          <Text style={[styles.headerCell, { flex: isMobile ? 5 : 3 }]}>{isMobile ? 'ITEM' : 'PROJETO / TAREFA'}</Text>
+          {!isMobile && <Text style={[styles.headerCell, { flex: 1.5 }]}>ATRIBUÍDO</Text>}
+          <Text style={[styles.headerCell, { flex: isMobile ? 1.5 : 0.8, textAlign: 'center' }]}>%</Text>
+          {!isMobile && (
+            <>
+              <Text style={[styles.headerCell, { flex: 1 }]}>INÍCIO</Text>
+              <Text style={[styles.headerCell, { flex: 1 }]}>PREVISÃO</Text>
+              <Text style={[styles.headerCell, { flex: 1 }]}>TÉRMINO</Text>
+            </>
+          )}
         </View>
 
         {/* Resize Handle */}
@@ -1647,7 +1696,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               const isLate = p.status === 'LATE';
               return (
                 <View key={`lp-${p.id}`} style={[styles.rowBase, styles.projectRow, isLate && { borderLeftWidth: 3, borderLeftColor: 'var(--danger)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}>
-                  <View style={{ flex: 3, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ flex: isMobile ? 5 : 3, flexDirection: 'row', alignItems: 'center' }}>
                     {p.tasks && p.tasks.length > 0 && (
                       <TouchableOpacity onPress={() => toggleProjectCollapse(p.id)} style={{ marginRight: 4, padding: 4 }}>
                         {collapsedProjects.has(p.id) ? (
@@ -1658,31 +1707,37 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                       </TouchableOpacity>
                     )}
                     <TouchableOpacity style={{ flex: 1, justifyContent: 'center', marginLeft: p.tasks && p.tasks.length > 0 ? 0 : 24 }} onPress={() => onEditRequest({ type: 'project', isNew: false, projectData: p })}>
-                      <Text style={[styles.cellText, styles.projectTitleText]}>{p.title}</Text>
-                      {(p.department || p.owner) && (
+                      <Text style={[styles.cellText, styles.projectTitleText, isMobile && { fontSize: 10 }]}>{p.title}</Text>
+                      {!isMobile && (p.department || p.owner) && (
                         <Text style={{color: 'var(--text-muted)', fontSize: 10, marginTop: 2}}>
                           {[p.department, p.owner].filter(Boolean).join(' • ')}
                         </Text>
                       )}
                     </TouchableOpacity>
                   </View>
-                  <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center' }}>
-                     <TouchableOpacity style={styles.iconButton} onPress={() => onEditRequest({ type: 'task', isNew: true, parentProjectId: p.id })}>
-                       <Text style={styles.iconButtonText}>+ Add Tarefa</Text>
-                     </TouchableOpacity>
+                  {!isMobile && (
+                    <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center' }}>
+                       <TouchableOpacity style={styles.iconButton} onPress={() => onEditRequest({ type: 'task', isNew: true, parentProjectId: p.id })}>
+                         <Text style={styles.iconButtonText}>+ Add Tarefa</Text>
+                       </TouchableOpacity>
+                    </View>
+                  )}
+                  <View style={{ flex: isMobile ? 1.5 : 0.8, alignItems: 'center' }}>
+                    <Text style={[styles.projectProgressText, isMobile && { fontSize: 11 }]}>{p.progress}%</Text>
                   </View>
-                  <View style={{ flex: 0.8, alignItems: 'center' }}>
-                    <Text style={styles.projectProgressText}>{p.progress}%</Text>
-                  </View>
-                  <Text style={[styles.cellText, styles.projectDateText, { flex: 1 }]} numberOfLines={1}>
-                    {safeFormatDate(p.startDate)}
-                  </Text>
-                  <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: p.status === 'LATE' ? 'var(--danger)' : 'var(--text-main)' }]} numberOfLines={1}>
-                    {safeFormatDate(p.forecastDate)}
-                  </Text>
-                  <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: (p.status === 'LATE' || (p.endDate && p.forecastDate && new Date(p.endDate) > new Date(p.forecastDate))) ? 'var(--danger)' : 'var(--primary)' }]} numberOfLines={1}>
-                    {safeFormatDate(p.endDate)}
-                  </Text>
+                  {!isMobile && (
+                    <>
+                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1 }]} numberOfLines={1}>
+                        {safeFormatDate(p.startDate)}
+                      </Text>
+                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: p.status === 'LATE' ? 'var(--danger)' : 'var(--text-main)' }]} numberOfLines={1}>
+                        {safeFormatDate(p.forecastDate)}
+                      </Text>
+                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: (p.status === 'LATE' || (p.endDate && p.forecastDate && new Date(p.endDate) > new Date(p.forecastDate))) ? 'var(--danger)' : 'var(--primary)' }]} numberOfLines={1}>
+                        {p.progress === 100 ? safeFormatDate(p.endDate) : '--/--/--'}
+                      </Text>
+                    </>
+                  )}
                 </View>
               );
             } else if (row.type === 'task') {
@@ -1695,31 +1750,37 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lt-${task.id}`} style={[styles.rowBase, styles.taskRow]}>
-                  <TouchableOpacity style={{ flex: 3, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })}>
+                  <TouchableOpacity style={{ flex: isMobile ? 5 : 3, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })}>
                     <CornerDownRight size={14} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor }]} />
-                    <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }]}>{task.title}</Text>
-                    <TouchableOpacity onPress={() => onEditRequest({ type: 'subtask', isNew: true, parentTaskId: task.id })} style={{ padding: 2, backgroundColor: 'var(--bg-card)', borderRadius: 4, borderWidth: 1, borderColor: 'var(--border)' }}>
-                      <Text style={{ fontSize: 10, color: 'var(--text-secondary)' }}>+ Sub</Text>
-                    </TouchableOpacity>
+                    <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }, isMobile && { fontSize: 11 }]}>{task.title}</Text>
+                    {!isMobile && (
+                      <TouchableOpacity onPress={() => onEditRequest({ type: 'subtask', isNew: true, parentTaskId: task.id })} style={{ padding: 2, backgroundColor: 'var(--bg-card)', borderRadius: 4, borderWidth: 1, borderColor: 'var(--border)' }}>
+                        <Text style={{ fontSize: 10, color: 'var(--text-secondary)' }}>+ Sub</Text>
+                      </TouchableOpacity>
+                    )}
                   </TouchableOpacity>
-                  <Text style={[styles.cellText, styles.mutedText, { flex: 1.5 }]}>{task.assignees.join(', ')}</Text>
+                  {!isMobile && <Text style={[styles.cellText, styles.mutedText, { flex: 1.5 }]}>{task.assignees.join(', ')}</Text>}
                   
-                  <TouchableOpacity style={{ flex: 0.8, alignItems: 'center' }} onPress={() => onUpdateProgress(task.id, task.progress >= 100 ? 0 : task.progress + 25)}>
-                    <View style={styles.progressBadge}>
-                      <Text style={styles.progressText}>{task.progress}%</Text>
+                  <TouchableOpacity style={{ flex: isMobile ? 1.5 : 0.8, alignItems: 'center' }} onPress={() => onUpdateProgress(task.id, task.progress >= 100 ? 0 : task.progress + 25)}>
+                    <View style={[styles.progressBadge, isMobile && { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }]}>
+                      <Text style={[styles.progressText, isMobile && { fontSize: 10 }]}>{task.progress}%</Text>
                     </View>
                   </TouchableOpacity>
 
-                  <Text style={[styles.cellText, { flex: 1 }]} numberOfLines={1}>
-                    {safeFormatDate(task.startDate)}
-                  </Text>
-                  <Text style={[styles.cellText, { flex: 1, color: task.status === 'LATE' ? 'var(--danger)' : 'var(--text-main)' }]} numberOfLines={1}>
-                    {safeFormatDate(task.forecastDate)}
-                  </Text>
-                  <Text style={[styles.cellText, { flex: 1, color: (task.status === 'LATE' || (task.endDate && task.forecastDate && new Date(task.endDate) > new Date(task.forecastDate))) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
-                    {safeFormatDate(task.endDate)}
-                  </Text>
+                  {!isMobile && (
+                    <>
+                      <Text style={[styles.cellText, { flex: 1 }]} numberOfLines={1}>
+                        {safeFormatDate(task.startDate)}
+                      </Text>
+                      <Text style={[styles.cellText, { flex: 1, color: task.status === 'LATE' ? 'var(--danger)' : 'var(--text-main)' }]} numberOfLines={1}>
+                        {safeFormatDate(task.forecastDate)}
+                      </Text>
+                      <Text style={[styles.cellText, { flex: 1, color: (task.status === 'LATE' || (task.endDate && task.forecastDate && new Date(task.endDate) > new Date(task.forecastDate))) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
+                        {task.progress === 100 ? safeFormatDate(task.endDate) : '--/--/--'}
+                      </Text>
+                    </>
+                  )}
                 </View>
               );
             } else {
@@ -1732,28 +1793,32 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lst-${subtask.id}`} style={[styles.rowBase, styles.taskRow, { backgroundColor: 'var(--bg-card)' }]}>
-                  <TouchableOpacity style={{ flex: 3, paddingLeft: 56, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })}>
+                  <TouchableOpacity style={{ flex: isMobile ? 5 : 3, paddingLeft: isMobile ? 32 : 56, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })}>
                     <CornerDownRight size={12} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor, width: 6, height: 6, opacity: 0.7 }]} />
-                    <Text style={[styles.cellText, styles.titleText, { fontSize: 12, color: 'var(--text-secondary)' }]}>{subtask.title}</Text>
+                    <Text style={[styles.cellText, styles.titleText, { fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)' }]}>{subtask.title}</Text>
                   </TouchableOpacity>
-                  <Text style={[styles.cellText, styles.mutedText, { flex: 1.5, fontSize: 11 }]}>{subtask.assignees.join(', ')}</Text>
+                  {!isMobile && <Text style={[styles.cellText, styles.mutedText, { flex: 1.5, fontSize: 11 }]}>{subtask.assignees.join(', ')}</Text>}
                   
-                  <TouchableOpacity style={{ flex: 0.8, alignItems: 'center' }} onPress={() => onUpdateSubtaskProgress(subtask.id, subtask.progress >= 100 ? 0 : subtask.progress + 25)}>
+                  <TouchableOpacity style={{ flex: isMobile ? 1.5 : 0.8, alignItems: 'center' }} onPress={() => onUpdateSubtaskProgress(subtask.id, subtask.progress >= 100 ? 0 : subtask.progress + 25)}>
                     <View style={[styles.progressBadge, { paddingHorizontal: 4, paddingVertical: 1 }]}>
                       <Text style={[styles.progressText, { fontSize: 9 }]}>{subtask.progress}%</Text>
                     </View>
                   </TouchableOpacity>
 
-                  <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: 'var(--text-secondary)' }]} numberOfLines={1}>
-                    {safeFormatDate(subtask.startDate)}
-                  </Text>
-                  <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: subtask.status === 'LATE' ? 'var(--danger)' : 'var(--text-secondary)' }]} numberOfLines={1}>
-                    {safeFormatDate(subtask.forecastDate)}
-                  </Text>
-                  <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: (subtask.status === 'LATE' || (subtask.endDate && subtask.forecastDate && new Date(subtask.endDate) > new Date(subtask.forecastDate))) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
-                    {safeFormatDate(subtask.endDate)}
-                  </Text>
+                  {!isMobile && (
+                    <>
+                      <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: 'var(--text-secondary)' }]} numberOfLines={1}>
+                        {safeFormatDate(subtask.startDate)}
+                      </Text>
+                      <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: subtask.status === 'LATE' ? 'var(--danger)' : 'var(--text-secondary)' }]} numberOfLines={1}>
+                        {safeFormatDate(subtask.forecastDate)}
+                      </Text>
+                      <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: (subtask.status === 'LATE' || (subtask.endDate && subtask.forecastDate && new Date(subtask.endDate) > new Date(subtask.forecastDate))) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
+                        {subtask.progress === 100 ? safeFormatDate(subtask.endDate) : '--/--/--'}
+                      </Text>
+                    </>
+                  )}
                 </View>
               );
             }
@@ -1926,6 +1991,8 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 // BOARD VIEW (KANBAN) COMPONENT
 // -------------------------------------------------------------
 const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], onEditRequest: any, highlightedTaskId?: string | null }) => {
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -1967,7 +2034,7 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
   };
 
   return (
-    <View style={styles.boardContainer}>
+    <View style={[styles.boardContainer, { padding: windowWidth < 768 ? 16 : 32 }]}>
       <View style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center', backgroundColor: 'var(--bg-card)', paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: 'var(--border)' }}>
         <Search size={18} color="var(--text-muted)" style={{ marginRight: 8 }} />
         <TextInput
@@ -2031,7 +2098,7 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
                     <TouchableOpacity 
                       style={[
                         styles.kanbanCard, 
-                        { borderLeftWidth: 3, borderLeftColor: riskColor },
+                        { borderLeftWidth: 3, borderLeftColor: riskColor, padding: isMobile ? 12 : 16 },
                         isHighlighted ? { borderColor: 'var(--primary)', borderWidth: 2, backgroundColor: 'var(--bg-app)', transform: [{scale: 1.02}] } as any : {}
                       ]} 
                       onPress={() => {
@@ -2329,7 +2396,6 @@ const styles = StyleSheet.create({
   // Board (Kanban)
   boardContainer: {
     flex: 1,
-    padding: 32,
   },
   kanbanColumn: {
     width: 320,
@@ -2368,7 +2434,6 @@ const styles = StyleSheet.create({
   },
   kanbanCard: {
     backgroundColor: 'var(--bg-card)',
-    padding: 16,
     borderRadius: 8,
     marginBottom: 16,
     borderWidth: 1,
@@ -2469,6 +2534,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: 480,
+    maxWidth: '95%',
     backgroundColor: 'var(--bg-card)',
     borderRadius: 12,
     borderWidth: 1,

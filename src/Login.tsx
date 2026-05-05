@@ -7,6 +7,8 @@ import { useTheme } from './theme';
 
 export default function LoginScreen() {
   const { theme } = useTheme();
+  const { width: windowWidth } = Dimensions.get('window');
+  const isMobile = windowWidth < 768;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -76,18 +78,18 @@ export default function LoginScreen() {
       <View style={[styles.decorativeCircle, { top: -100, right: -50, width: 300, height: 300, opacity: 0.1 }]} />
       <View style={[styles.decorativeCircle, { bottom: -150, left: -100, width: 400, height: 400, opacity: 0.05 }]} />
 
-      <View style={styles.contentWrapper}>
-        <View style={styles.leftPanel}>
-          <Text style={styles.welcomeTitle}>Bem-vindo de volta.</Text>
-          <Text style={styles.welcomeSubtitle}>
+      <View style={[styles.contentWrapper, isMobile && { padding: 16, gap: 32 }]}>
+        <View style={[styles.leftPanel, isMobile && { alignItems: 'center' }]}>
+          <Text style={[styles.welcomeTitle, isMobile && { fontSize: 32, textAlign: 'center' }]}>Bem-vindo de volta.</Text>
+          <Text style={[styles.welcomeSubtitle, isMobile && { fontSize: 16, textAlign: 'center' }]}>
             Acesse o sistema de Controle de Projetos Adarco para gerenciar suas tarefas e prazos com eficiência.
           </Text>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, isMobile && { padding: 24, borderRadius: 16 }]}>
           <View style={styles.cardHeader}>
-            <Text style={styles.title}>Login</Text>
-            <Text style={styles.subtitle}>Digite suas credenciais para continuar</Text>
+            <Text style={[styles.title, isMobile && { fontSize: 24 }]}>Login</Text>
+            <Text style={[styles.subtitle, isMobile && { fontSize: 14 }]}>Digite suas credenciais para continuar</Text>
           </View>
           
           {error ? (

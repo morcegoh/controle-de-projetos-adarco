@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet, TextInput } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, TextInput, useWindowDimensions } from 'react-native';
 import { supabase } from './supabase';
 import { User } from '@supabase/supabase-js';
 
 export default function ProfileScreen({ goBack, user }: { goBack: () => void, user: User }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
   const [displayName, setDisplayName] = useState(user?.user_metadata?.full_name || user?.user_metadata?.displayName || '');
   const [role, setRole] = useState(user?.user_metadata?.role || '');
   const [phone, setPhone] = useState(user?.user_metadata?.phone || '');
@@ -44,15 +46,15 @@ export default function ProfileScreen({ goBack, user }: { goBack: () => void, us
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: 'var(--bg-app)' }} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={styles.header}>
+      <View style={[styles.header, isMobile && { padding: 16 }]}>
         <TouchableOpacity onPress={goBack} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Voltar</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>Meu Perfil</Text>
-        <View style={{ width: 60 }} />
+        <Text style={[styles.title, isMobile && { fontSize: 18 }]}>Meu Perfil</Text>
+        <View style={{ width: isMobile ? 40 : 60 }} />
       </View>
 
-      <View style={styles.content}>
+      <View style={[styles.content, isMobile && { padding: 20 }]}>
         <View style={styles.avatarLarge}>
           <Text style={styles.avatarLargeText}>{initial}</Text>
         </View>

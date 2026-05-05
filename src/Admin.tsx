@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { Edit2, Trash2, Key } from 'lucide-react';
 
 export default function AdminScreen() {
+  const { width: windowWidth } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
   const [activeTab, setActiveTab] = useState<'NEW' | 'LIST'>('NEW');
   
   // States for New User
@@ -131,19 +133,19 @@ export default function AdminScreen() {
 
   return (
     <ScrollView style={styles.outerContainer} contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Painel Admin</Text>
+      <Text style={[styles.title, isMobile && { fontSize: 20, marginBottom: 16 }]}>Painel Admin</Text>
       
-      <View style={styles.tabsContainer}>
-        <TouchableOpacity style={[styles.tab, activeTab === 'NEW' && styles.activeTab]} onPress={() => setActiveTab('NEW')}>
+      <View style={[styles.tabsContainer, isMobile && { flexDirection: 'column', width: '100%' }]}>
+        <TouchableOpacity style={[styles.tab, activeTab === 'NEW' && styles.activeTab, isMobile && { paddingVertical: 10 }]} onPress={() => setActiveTab('NEW')}>
           <Text style={[styles.tabText, activeTab === 'NEW' && styles.activeTabText]}>Adicionar Novo Usuário</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab === 'LIST' && styles.activeTab]} onPress={() => setActiveTab('LIST')}>
+        <TouchableOpacity style={[styles.tab, activeTab === 'LIST' && styles.activeTab, isMobile && { paddingVertical: 10 }]} onPress={() => setActiveTab('LIST')}>
           <Text style={[styles.tabText, activeTab === 'LIST' && styles.activeTabText]}>Usuários Cadastrados</Text>
         </TouchableOpacity>
       </View>
 
       {activeTab === 'NEW' && (
-        <View style={styles.card}>
+        <View style={[styles.card, isMobile && { padding: 20 }]}>
           <Text style={styles.description}>
             Preencha os dados abaixo para gerar um novo acesso. A senha padrão do usuário será 123456. Ele deverá trocá-la no primeiro acesso.
           </Text>
@@ -170,33 +172,54 @@ export default function AdminScreen() {
       )}
 
       {activeTab === 'LIST' && (
-        <View style={[styles.card, { width: 800 }]}>
+        <View style={[styles.card, { width: isMobile ? '100%' : 800 }, isMobile && { padding: 12 }]}>
           {loadingList ? (
             <ActivityIndicator color="var(--primary)" />
           ) : errorList ? (
             <Text style={styles.errorText}>{errorList}</Text>
           ) : (
             <View>
-              <View style={styles.tableHeader}>
-                <Text style={[styles.tableCell, {flex: 2, fontWeight: "bold"}]}>Nome</Text>
-                <Text style={[styles.tableCell, {flex: 2, fontWeight: "bold"}]}>Email</Text>
-                <Text style={[styles.tableCell, {flex: 1, fontWeight: "bold"}]}>Cargo</Text>
-                <Text style={[styles.tableCell, {flex: 1, fontWeight: "bold", textAlign: 'right'}]}>Ações</Text>
-              </View>
-              {users.map((u) => (
-                <View key={u.id} style={styles.tableRow}>
-                  <Text style={[styles.tableCell, {flex: 2}]} numberOfLines={1}>{u.user_metadata?.full_name}</Text>
-                  <Text style={[styles.tableCell, {flex: 2}]} numberOfLines={1}>{u.email}</Text>
-                  <Text style={[styles.tableCell, {flex: 1}]} numberOfLines={1}>{u.user_metadata?.role}</Text>
-                  <View style={[styles.tableCell, {flex: 1, flexDirection: 'row', justifyContent: 'flex-end', minWidth: 80}]}>
-                     <TouchableOpacity onPress={() => setEditingUser(u)} style={{ marginLeft: 12 }}><Edit2 size={16} color="var(--text-secondary)" /></TouchableOpacity>
-                     <TouchableOpacity onPress={() => confirmResetPassword(u)} style={{ marginLeft: 12 }}><Key size={16} color="var(--warning)" /></TouchableOpacity>
-                     {u.email !== 'heder.santos@adarco.com.br' && (
-                       <TouchableOpacity onPress={() => deleteUser(u.id)} style={{ marginLeft: 12 }}><Trash2 size={16} color="var(--danger)" /></TouchableOpacity>
-                     )}
+              {isMobile ? (
+                 <View>
+                   {users.map((u) => (
+                      <View key={u.id} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'var(--border)', gap: 4 }}>
+                        <Text style={{ fontWeight: 'bold', color: 'var(--text-main)' }}>{u.user_metadata?.full_name}</Text>
+                        <Text style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{u.email}</Text>
+                        <Text style={{ fontSize: 12, color: 'var(--text-muted)' }}>{u.user_metadata?.role}</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                           <TouchableOpacity onPress={() => setEditingUser(u)} style={{ marginLeft: 16 }}><Edit2 size={20} color="var(--text-secondary)" /></TouchableOpacity>
+                           <TouchableOpacity onPress={() => confirmResetPassword(u)} style={{ marginLeft: 16 }}><Key size={20} color="var(--warning)" /></TouchableOpacity>
+                           {u.email !== 'heder.santos@adarco.com.br' && (
+                             <TouchableOpacity onPress={() => deleteUser(u.id)} style={{ marginLeft: 16 }}><Trash2 size={20} color="var(--danger)" /></TouchableOpacity>
+                           )}
+                        </View>
+                      </View>
+                   ))}
+                 </View>
+              ) : (
+                <>
+                  <View style={styles.tableHeader}>
+                    <Text style={[styles.tableCell, {flex: 2, fontWeight: "bold"}]}>Nome</Text>
+                    <Text style={[styles.tableCell, {flex: 2, fontWeight: "bold"}]}>Email</Text>
+                    <Text style={[styles.tableCell, {flex: 1, fontWeight: "bold"}]}>Cargo</Text>
+                    <Text style={[styles.tableCell, {flex: 1, fontWeight: "bold", textAlign: 'right'}]}>Ações</Text>
                   </View>
-                </View>
-              ))}
+                  {users.map((u) => (
+                    <View key={u.id} style={styles.tableRow}>
+                      <Text style={[styles.tableCell, {flex: 2}]} numberOfLines={1}>{u.user_metadata?.full_name}</Text>
+                      <Text style={[styles.tableCell, {flex: 2}]} numberOfLines={1}>{u.email}</Text>
+                      <Text style={[styles.tableCell, {flex: 1}]} numberOfLines={1}>{u.user_metadata?.role}</Text>
+                      <View style={[styles.tableCell, {flex: 1, flexDirection: 'row', justifyContent: 'flex-end', minWidth: 80}]}>
+                         <TouchableOpacity onPress={() => setEditingUser(u)} style={{ marginLeft: 12 }}><Edit2 size={16} color="var(--text-secondary)" /></TouchableOpacity>
+                         <TouchableOpacity onPress={() => confirmResetPassword(u)} style={{ marginLeft: 12 }}><Key size={16} color="var(--warning)" /></TouchableOpacity>
+                         {u.email !== 'heder.santos@adarco.com.br' && (
+                           <TouchableOpacity onPress={() => deleteUser(u.id)} style={{ marginLeft: 12 }}><Trash2 size={16} color="var(--danger)" /></TouchableOpacity>
+                         )}
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
             </View>
           )}
         </View>
@@ -425,6 +448,7 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: 480,
+    maxWidth: '95%',
     backgroundColor: 'var(--bg-card)',
     borderRadius: 12,
     padding: 24,
