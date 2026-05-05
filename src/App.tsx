@@ -274,6 +274,8 @@ function App({ user }: { user: User }) {
 
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN'>('GANTT');
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
@@ -296,6 +298,11 @@ function App({ user }: { user: User }) {
   }, []);
 
   const handleTabChange = async (tab: 'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN') => {
+    // Sempre que a Timeline for acessada (mesmo se já estiver nela), minimiza tudo automaticamente
+    if (tab === 'GANTT') {
+      setExpandedProjects(new Set());
+      setExpandedTasks(new Set());
+    }
     setActiveTab(tab);
     try {
       await AsyncStorage.setItem('activeTab', tab);
@@ -825,7 +832,7 @@ function App({ user }: { user: User }) {
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => { handleTabChange('GANTT'); setHighlightedTaskId(null); }}>
-              <Text style={[styles.appName, isMobile && { fontSize: 16 }]}>{isSmallMobile ? 'Adarco' : 'Controle Adarco'}</Text>
+              <Text style={[styles.appName, isMobile && { fontSize: 16 }]}>Controle de Projetos Adarco</Text>
             </TouchableOpacity>
           </View>
 
@@ -869,17 +876,17 @@ function App({ user }: { user: User }) {
 
         <View style={{ flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: 12, flexWrap: 'wrap' }}>
           {activeTab === 'GANTT' && (
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-              <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 12}}>Timeline:</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: isMobile ? 0 : 40}}>
+              <Text style={{color: 'var(--text-main)', fontFamily: 'Inter, sans-serif', fontWeight: 'bold', fontSize: 14}}>Timeline:</Text>
               <select 
-                style={{ ...webInputDOMStyle, marginBottom: 0, paddingTop: '4px', paddingBottom: '4px', paddingLeft: '8px', paddingRight: '8px', width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)', fontSize: '12px' }}
+                style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: '#fff', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
                 value={filterYear}
                 onChange={(e) => setFilterYear(Number(e.target.value))}
               >
                 {[2026, 2027, 2028, 2029, 2030].map(y => <option key={y} value={y}>{y}</option>)}
               </select>
               <select
-                style={{ ...webInputDOMStyle, marginBottom: 0, paddingTop: '4px', paddingBottom: '4px', paddingLeft: '8px', paddingRight: '8px', width: 'auto', backgroundColor: 'var(--glass-bg)', borderColor: 'var(--glass-border)', fontSize: '12px' }}
+                style={{ ...webInputDOMStyle, marginBottom: 0, paddingLeft: '12px', paddingRight: '24px', paddingTop: '6px', paddingBottom: '6px', width: 'auto', backgroundColor: '#fff', borderColor: 'var(--border)', borderRadius: '6px', fontSize: '13px', appearance: 'auto' as any }}
                 value={filterWeek}
                 onChange={(e) => setFilterWeek(Number(e.target.value))}
               >
@@ -890,28 +897,23 @@ function App({ user }: { user: User }) {
 
           <View style={[styles.tabsContainer, isMobile && { width: '100%', justifyContent: 'space-between' }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              {activeTab === 'BOARD' && (
-                <TouchableOpacity style={{ paddingHorizontal: 8, paddingVertical: 8, marginRight: 8, borderRadius: 6, borderWidth: 1, borderColor: 'var(--border)', backgroundColor: 'var(--bg-card)', justifyContent: 'center', alignItems: 'center' }} onPress={handleExportReport}>
-                  <Download size={18} color="var(--text-secondary)" />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity style={[styles.addButton, isMobile && { marginRight: 8 }]} onPress={() => setEditingItem({ type: 'project', isNew: true })}>
+              <TouchableOpacity style={styles.addButton} onPress={() => setEditingItem({ type: 'project', isNew: true })}>
                 <Text style={styles.addButtonText}>+ Projeto</Text>
               </TouchableOpacity>
             </View>
             
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <TouchableOpacity 
                 style={[styles.tab, activeTab === 'GANTT' && styles.activeTab, isSmallMobile && { paddingHorizontal: 8 }]}
                 onPress={() => handleTabChange('GANTT')}
               >
-                <Text style={[styles.tabText, activeTab === 'GANTT' && styles.activeTabText, isSmallMobile && { fontSize: 12 }]}>{isSmallMobile ? 'Gantt' : 'Timeline'}</Text>
+                <Text style={[styles.tabText, activeTab === 'GANTT' && styles.activeTabText, isSmallMobile && { fontSize: 12 }]}>{isSmallMobile ? 'Gantt' : 'Timeline View'}</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[styles.tab, activeTab === 'BOARD' && styles.activeTab, isSmallMobile && { paddingHorizontal: 8 }]}
                 onPress={() => handleTabChange('BOARD')}
               >
-                <Text style={[styles.tabText, activeTab === 'BOARD' && styles.activeTabText, isSmallMobile && { fontSize: 12 }]}>{isSmallMobile ? 'Kanban' : 'Board'}</Text>
+                <Text style={[styles.tabText, activeTab === 'BOARD' && styles.activeTabText, isSmallMobile && { fontSize: 12 }]}>{isSmallMobile ? 'Kanban' : 'Board View'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -944,6 +946,10 @@ function App({ user }: { user: User }) {
           <GanttView 
             projects={processedProjects} 
             timelineStart={timelineStart}
+            expandedProjects={expandedProjects}
+            setExpandedProjects={setExpandedProjects}
+            expandedTasks={expandedTasks}
+            setExpandedTasks={setExpandedTasks}
             onUpdateProgress={handleUpdateProgress} 
             onUpdateSubtaskProgress={handleUpdateSubtaskProgress}
             onEditRequest={setEditingItem}
@@ -1523,17 +1529,54 @@ Por favor, em caso de dúvidas fale comigo.`);
 };
 
 // -------------------------------------------------------------
+// GANTT BAR COMPONENT
+// -------------------------------------------------------------
+const GanttBar = ({ progress, status }: { progress: number; status: 'em_dia' | 'atrasado' | 'cancelado' }) => {
+  let areaClasses = "";
+  let barClasses = "";
+  let shadowColor = "";
+
+  if (status === 'em_dia') {
+    areaClasses = "border-emerald-400";
+    barClasses = "from-emerald-200/60 to-emerald-400/60";
+    shadowColor = "rgba(52,211,153,0.5)";
+  } else if (status === 'atrasado') {
+    areaClasses = "border-red-400";
+    barClasses = "from-emerald-200/60 to-emerald-400/60";
+    shadowColor = "rgba(248,113,113,0.5)";
+  } else if (status === 'cancelado') {
+    areaClasses = "border-red-400";
+    barClasses = "from-red-200/50 to-red-400/50";
+    shadowColor = "rgba(248,113,113,0.5)";
+  }
+
+  // Usamos style para a sombra pois o Tailwind pode não ter o shadow customizado registrado dependendo da config
+  const glowStyle = {
+    boxShadow: `0 0 10px ${shadowColor}`,
+  };
+
+  return (
+    <div 
+      className={`relative h-full w-full rounded-md border-[1px] overflow-hidden ${areaClasses} bg-white/5`}
+      style={glowStyle}
+    >
+      <div 
+        className={`h-full bg-gradient-to-r ${barClasses} transition-all duration-500`} 
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+};
+
+// -------------------------------------------------------------
 // GANTT VIEW COMPONENT
 // -------------------------------------------------------------
-const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskProgress, onEditRequest, onTaskPress }: { projects: Project[], timelineStart: Date, onUpdateProgress: (id: string, p: number) => void, onUpdateSubtaskProgress: (id: string, p: number) => void, onEditRequest: any, onTaskPress: (id: string) => void }) => {
+const GanttView = ({ projects, timelineStart, expandedProjects, setExpandedProjects, expandedTasks, setExpandedTasks, onUpdateProgress, onUpdateSubtaskProgress, onEditRequest, onTaskPress }: { projects: Project[], timelineStart: Date, expandedProjects: Set<string>, setExpandedProjects: any, expandedTasks: Set<string>, setExpandedTasks: any, onUpdateProgress: (id: string, p: number) => void, onUpdateSubtaskProgress: (id: string, p: number) => void, onEditRequest: any, onTaskPress: (id: string) => void }) => {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < 768;
 
   // Generate Days Header
   const daysArray = Array.from({ length: TIMELINE_DAYS }).map((_, i) => addDays(timelineStart, i));
-
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
-  const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const toggleProjectExpansion = (projectId: string) => {
     const newExpanded = new Set(expandedProjects);
@@ -1618,16 +1661,12 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
       {/* Pinned Headers Container */}
       <View style={styles.ganttHeaderRow}>
         <View style={[styles.leftPanel, styles.tableHeader, { width: leftWidth }]}>
-          <Text style={[styles.headerCell, { flex: isMobile ? 5 : 3 }]}>{isMobile ? 'ITEM' : 'PROJETO / TAREFA'}</Text>
-          {!isMobile && <Text style={[styles.headerCell, { flex: 1.5 }]}>ATRIBUÍDO</Text>}
-          <Text style={[styles.headerCell, { flex: isMobile ? 1.5 : 0.8, textAlign: 'center' }]}>%</Text>
-          {!isMobile && (
-            <>
-              <Text style={[styles.headerCell, { flex: 1 }]}>INÍCIO</Text>
-              <Text style={[styles.headerCell, { flex: 1 }]}>PREVISÃO</Text>
-              <Text style={[styles.headerCell, { flex: 1 }]}>TÉRMINO</Text>
-            </>
-          )}
+          <Text style={[styles.headerCell, { flex: 3 }]}>PROJETO / TAREFA</Text>
+          <Text style={[styles.headerCell, { flex: 1.5 }]}>ATRIBUÍDO</Text>
+          <Text style={[styles.headerCell, { flex: 0.8, textAlign: 'center' }]}>%</Text>
+          <Text style={[styles.headerCell, { flex: 1 }]}>INÍCIO</Text>
+          <Text style={[styles.headerCell, { flex: 1 }]}>PREVISÃO</Text>
+          <Text style={[styles.headerCell, { flex: 1 }]}>TÉRMINO</Text>
         </View>
 
         {/* Resize Handle */}
@@ -1660,10 +1699,10 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
             return (
               <View key={i} style={[
                 styles.dayHeader,
-                isToday && { backgroundColor: 'rgba(11, 253, 113, 0.1)', borderBottomWidth: 2, borderBottomColor: '#0BFD71' }
+                isToday && { backgroundColor: 'rgba(16, 185, 129, 0.1)' }
               ]}>
-                <Text style={[styles.dayHeaderText, isToday && { color: '#0BFD71', fontWeight: 'bold' }]}>{format(day, 'dd')}</Text>
-                <Text style={[styles.daySubText, isToday && { color: '#0BFD71', fontWeight: 'bold' }]}>{format(day, 'MMM')}</Text>
+                <Text style={[styles.dayHeaderText, isToday && { color: 'var(--primary)', fontWeight: 'bold' }]}>{format(day, 'dd')}</Text>
+                <Text style={[styles.daySubText, isToday && { color: 'var(--primary)', fontWeight: 'bold' }]}>{format(day, 'MMM')}</Text>
               </View>
             );
           })}
@@ -1680,49 +1719,41 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               const p = row.data as Project;
               const isLate = p.status === 'LATE';
               return (
-                <View key={`lp-${p.id}`} style={[styles.rowBase, styles.projectRow, isLate && { borderLeftWidth: 3, borderLeftColor: 'var(--danger)', backgroundColor: 'rgba(239, 68, 68, 0.05)' }]}>
-                  <View style={{ flex: isMobile ? 5 : 3, flexDirection: 'row', alignItems: 'center' }}>
-                    {p.tasks && p.tasks.length > 0 && (
-                      <TouchableOpacity onPress={() => toggleProjectExpansion(p.id)} style={{ marginRight: 4, padding: 4 }}>
-                        {expandedProjects.has(p.id) ? (
-                          <ChevronDown size={16} color="var(--text-main)" />
-                        ) : (
-                          <ChevronRight size={16} color="var(--text-main)" />
-                        )}
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity style={{ flex: 1, justifyContent: 'center', marginLeft: p.tasks && p.tasks.length > 0 ? 0 : 24 }} onPress={() => onEditRequest({ type: 'project', isNew: false, projectData: p })} title={p.title}>
-                      <Text style={[styles.cellText, styles.projectTitleText, isMobile && { fontSize: 10 }]} title={p.title}>{p.title}</Text>
-                      {!isMobile && (p.department || p.owner) && (
-                        <Text style={{color: 'var(--text-muted)', fontSize: 10, marginTop: 2}} title={[p.department, p.owner].filter(Boolean).join(' • ')}>
+                <View key={`lp-${p.id}`} style={[styles.rowBase, styles.projectRow]}>
+                  <View style={{ flex: 3, flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => toggleProjectExpansion(p.id)} style={{ marginRight: 8 }}>
+                      {expandedProjects.has(p.id) ? (
+                        <ChevronDown size={18} color="var(--text-main)" />
+                      ) : (
+                        <ChevronRight size={18} color="var(--text-main)" />
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ flex: 1, justifyContent: 'center' }} onPress={() => onEditRequest({ type: 'project', isNew: false, projectData: p })} title={p.title}>
+                      <Text style={[styles.cellText, styles.projectTitleText]} title={p.title}>{p.title}</Text>
+                      {(p.department || p.owner) && (
+                        <Text style={{color: 'var(--text-muted)', fontSize: 11, marginTop: 1}} title={[p.department, p.owner].filter(Boolean).join(' • ')}>
                           {[p.department, p.owner].filter(Boolean).join(' • ')}
                         </Text>
                       )}
                     </TouchableOpacity>
                   </View>
-                  {!isMobile && (
-                    <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center' }}>
-                       <TouchableOpacity style={styles.iconButton} onPress={() => onEditRequest({ type: 'task', isNew: true, parentProjectId: p.id })}>
-                         <Text style={styles.iconButtonText}>+ Add Tarefa</Text>
-                       </TouchableOpacity>
-                    </View>
-                  )}
-                  <View style={{ flex: isMobile ? 1.5 : 0.8, alignItems: 'center' }}>
-                    <Text style={[styles.projectProgressText, isMobile && { fontSize: 11 }]}>{p.progress}%</Text>
+                  <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center' }}>
+                     <TouchableOpacity style={styles.addTarefaBtn} onPress={() => onEditRequest({ type: 'task', isNew: true, parentProjectId: p.id })}>
+                       <Text style={styles.addTarefaBtnText}>+ Add Tarefa</Text>
+                     </TouchableOpacity>
                   </View>
-                  {!isMobile && (
-                    <>
-                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1 }]} numberOfLines={1} title={safeFormatDate(p.startDate)}>
-                        {safeFormatDate(p.startDate)}
-                      </Text>
-                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: p.status === 'LATE' ? 'var(--danger)' : 'var(--text-main)' }]} numberOfLines={1} title={safeFormatDate(p.forecastDate)}>
-                        {safeFormatDate(p.forecastDate)}
-                      </Text>
-                      <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: (p.status === 'LATE' || (p.endDate && p.forecastDate && new Date(p.endDate) > new Date(p.forecastDate))) ? 'var(--danger)' : 'var(--primary)' }]} numberOfLines={1} title={p.progress === 100 ? safeFormatDate(p.endDate) : '--/--/--'}>
-                        {p.progress === 100 ? safeFormatDate(p.endDate) : '--/--/--'}
-                      </Text>
-                    </>
-                  )}
+                  <View style={{ flex: 0.8, alignItems: 'center' }}>
+                    <Text style={styles.projectProgressText}>{p.progress}%</Text>
+                  </View>
+                  <Text style={[styles.cellText, styles.projectDateText, { flex: 1 }]} numberOfLines={1}>
+                    {safeFormatDate(p.startDate)}
+                  </Text>
+                  <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: isLate ? 'var(--danger)' : 'var(--text-secondary)' }]} numberOfLines={1}>
+                    {safeFormatDate(p.forecastDate)}
+                  </Text>
+                  <Text style={[styles.cellText, styles.projectDateText, { flex: 1, color: isLate ? 'var(--danger)' : 'var(--primary)' }]} numberOfLines={1}>
+                    {p.progress === 100 ? safeFormatDate(p.endDate) : '--/--/--'}
+                  </Text>
                 </View>
               );
             } else if (row.type === 'task') {
@@ -1735,7 +1766,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lt-${task.id}`} style={[styles.rowBase, styles.taskRow]}>
-                  <View style={{ flex: isMobile ? 5 : 3, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ flex: 3, paddingLeft: 24, flexDirection: 'row', alignItems: 'center' }}>
                     {task.subtasks && task.subtasks.length > 0 ? (
                       <TouchableOpacity onPress={() => toggleTaskExpansion(task.id)} style={{ padding: 4 }}>
                         {expandedTasks.has(task.id) ? <ChevronDown size={14} color="var(--text-secondary)" /> : <ChevronRight size={14} color="var(--text-secondary)" />}
@@ -1745,7 +1776,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                     )}
                     <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: parentProject?.id })} title={task.title}>
                       <View style={[styles.inlineRiskDot, { backgroundColor: riskColor }]} />
-                      <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }, isMobile && { fontSize: 11 }]} title={task.title}>{task.title}</Text>
+                      <Text style={[styles.cellText, styles.titleText, { marginRight: 8 }]} title={task.title}>{task.title}</Text>
                       {!isMobile && (
                         <TouchableOpacity onPress={() => onEditRequest({ type: 'subtask', isNew: true, parentTaskId: task.id })} style={{ padding: 2, backgroundColor: 'var(--bg-card)', borderRadius: 4, borderWidth: 1, borderColor: 'var(--border)' }}>
                           <Text style={{ fontSize: 10, color: 'var(--text-secondary)' }}>+ Sub</Text>
@@ -1753,27 +1784,23 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                       )}
                     </TouchableOpacity>
                   </View>
-                  {!isMobile && <Text style={[styles.cellText, styles.mutedText, { flex: 1.5 }]}>{task.assignees.join(', ')}</Text>}
+                  <Text style={[styles.cellText, styles.mutedText, { flex: 1.5 }]}>{task.assignees.join(', ')}</Text>
                   
-                  <TouchableOpacity style={{ flex: isMobile ? 1.5 : 0.8, alignItems: 'center' }} onPress={() => onUpdateProgress(task.id, task.progress >= 100 ? 0 : task.progress + 25)}>
-                    <View style={[styles.progressBadge, isMobile && { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }]}>
-                      <Text style={[styles.progressText, isMobile && { fontSize: 10 }]}>{task.progress}%</Text>
+                  <TouchableOpacity style={{ flex: 0.8, alignItems: 'center' }} onPress={() => onUpdateProgress(task.id, task.progress >= 100 ? 0 : task.progress + 25)}>
+                    <View style={styles.progressBadge}>
+                      <Text style={styles.progressText}>{task.progress}%</Text>
                     </View>
                   </TouchableOpacity>
 
-                  {!isMobile && (
-                    <>
-                      <Text style={[styles.cellText, { flex: 1 }]} numberOfLines={1}>
-                        {safeFormatDate(task.startDate)}
-                      </Text>
-                      <Text style={[styles.cellText, { flex: 1, color: task.status === 'LATE' ? 'var(--danger)' : 'var(--text-main)' }]} numberOfLines={1}>
-                        {safeFormatDate(task.forecastDate)}
-                      </Text>
-                      <Text style={[styles.cellText, { flex: 1, color: (task.status === 'LATE' || (task.endDate && task.forecastDate && new Date(task.endDate) > new Date(task.forecastDate))) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
-                        {task.progress === 100 ? safeFormatDate(task.endDate) : '--/--/--'}
-                      </Text>
-                    </>
-                  )}
+                  <Text style={[styles.cellText, { flex: 1 }]} numberOfLines={1}>
+                    {safeFormatDate(task.startDate)}
+                  </Text>
+                  <Text style={[styles.cellText, { flex: 1, color: task.status === 'LATE' ? 'var(--danger)' : 'var(--text-main)' }]} numberOfLines={1}>
+                    {safeFormatDate(task.forecastDate)}
+                  </Text>
+                  <Text style={[styles.cellText, { flex: 1, color: (task.status === 'LATE' || (task.endDate && task.forecastDate && new Date(task.endDate) > new Date(task.forecastDate))) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
+                    {task.progress === 100 ? safeFormatDate(task.endDate) : '--/--/--'}
+                  </Text>
                 </View>
               );
             } else {
@@ -1786,32 +1813,28 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
 
               return (
                 <View key={`lst-${subtask.id}`} style={[styles.rowBase, styles.taskRow, { backgroundColor: 'var(--bg-card)' }]}>
-                  <TouchableOpacity style={{ flex: isMobile ? 5 : 3, paddingLeft: isMobile ? 32 : 56, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })} title={subtask.title}>
+                  <TouchableOpacity style={{ flex: 3, paddingLeft: 56, flexDirection: 'row', alignItems: 'center' }} onPress={() => onEditRequest({ type: 'subtask', isNew: false, subtaskData: subtask, parentTaskId })} title={subtask.title}>
                     <CornerDownRight size={12} color="var(--border)" style={{ marginRight: 6, marginTop: -2 }} />
                     <View style={[styles.inlineRiskDot, { backgroundColor: riskColor, width: 6, height: 6, opacity: 0.7 }]} />
-                    <Text style={[styles.cellText, styles.titleText, { fontSize: isMobile ? 10 : 12, color: 'var(--text-secondary)' }]} title={subtask.title}>{subtask.title}</Text>
+                    <Text style={[styles.cellText, styles.titleText, { fontSize: 12, color: 'var(--text-secondary)' }]} title={subtask.title}>{subtask.title}</Text>
                   </TouchableOpacity>
-                  {!isMobile && <Text style={[styles.cellText, styles.mutedText, { flex: 1.5, fontSize: 11 }]}>{subtask.assignees.join(', ')}</Text>}
+                  <Text style={[styles.cellText, styles.mutedText, { flex: 1.5, fontSize: 11 }]}>{subtask.assignees.join(', ')}</Text>
                   
-                  <TouchableOpacity style={{ flex: isMobile ? 1.5 : 0.8, alignItems: 'center' }} onPress={() => onUpdateSubtaskProgress(subtask.id, subtask.progress >= 100 ? 0 : subtask.progress + 25)}>
+                  <TouchableOpacity style={{ flex: 0.8, alignItems: 'center' }} onPress={() => onUpdateSubtaskProgress(subtask.id, subtask.progress >= 100 ? 0 : subtask.progress + 25)}>
                     <View style={[styles.progressBadge, { paddingHorizontal: 4, paddingVertical: 1 }]}>
                       <Text style={[styles.progressText, { fontSize: 9 }]}>{subtask.progress}%</Text>
                     </View>
                   </TouchableOpacity>
 
-                  {!isMobile && (
-                    <>
-                      <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: 'var(--text-secondary)' }]} numberOfLines={1}>
-                        {safeFormatDate(subtask.startDate)}
-                      </Text>
-                      <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: subtask.status === 'LATE' ? 'var(--danger)' : 'var(--text-secondary)' }]} numberOfLines={1}>
-                        {safeFormatDate(subtask.forecastDate)}
-                      </Text>
-                      <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: (subtask.status === 'LATE' || (subtask.endDate && subtask.forecastDate && new Date(subtask.endDate) > new Date(subtask.forecastDate))) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
-                        {subtask.progress === 100 ? safeFormatDate(subtask.endDate) : '--/--/--'}
-                      </Text>
-                    </>
-                  )}
+                  <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: 'var(--text-secondary)' }]} numberOfLines={1}>
+                    {safeFormatDate(subtask.startDate)}
+                  </Text>
+                  <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: subtask.status === 'LATE' ? 'var(--danger)' : 'var(--text-secondary)' }]} numberOfLines={1}>
+                    {safeFormatDate(subtask.forecastDate)}
+                  </Text>
+                  <Text style={[styles.cellText, { flex: 1, fontSize: 11, color: (subtask.status === 'LATE' || (subtask.endDate && subtask.forecastDate && new Date(subtask.endDate) > new Date(subtask.forecastDate))) ? 'var(--danger)' : 'var(--text-muted)' }]} numberOfLines={1}>
+                    {subtask.progress === 100 ? safeFormatDate(subtask.endDate) : '--/--/--'}
+                  </Text>
                 </View>
               );
             }
@@ -1830,9 +1853,11 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
             {rows.map((row, idx) => {
               const data = row.data;
               const roundedProgress = Math.round(data.progress || 0);
+              const isCanceled = data.status === 'CANCELED';
+              const isLateItem = data.status === 'LATE' && roundedProgress < 100;
               const rawStartOffset = safeDifferenceInDays(data.startDate, timelineStart);
               
-              const isFinishedRow = data.status === 'COMPLETED' || roundedProgress >= 100 || data.status === 'CANCELED';
+              const isFinishedRow = data.status === 'COMPLETED' || roundedProgress >= 100 || isCanceled;
               const today = startOfDay(new Date());
 
               // Determine the logical end of the bar
@@ -1860,58 +1885,13 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               const safeOffset = startInTimeline;
               const safeDuration = visibleDuration;
 
-              // Colors based on user rules
-              const isCanceled = data.status === 'CANCELED';
-              const isLateItem = data.status === 'LATE' && roundedProgress < 100;
-              
-              let areaColor = '';
-              let barColor = '';
-              let borderColor = '#10b981'; // Verde padrão (margens)
-              let shadowColor = '#10b981'; // Brilho verde padrão
-              let glowOpacity = 0.4;
-              let glowRadius = 8;
-              let barOpacity = 0.9;
-
-              if (row.type === 'project') {
-                // Projeto Normal: Verde bem suave
-                areaColor = 'rgba(167, 243, 208, 0.4)'; 
-                barColor = '#10b981';
-              } else {
-                // Tarefa Normal: Verde um pouco mais visível
-                areaColor = 'rgba(16, 185, 129, 0.25)';
-                barColor = '#10b981';
+              // Determinar status para o componente GanttBar
+              let ganttStatus: 'em_dia' | 'atrasado' | 'cancelado' = 'em_dia';
+              if (isCanceled) {
+                ganttStatus = 'cancelado';
+              } else if (isLateItem) {
+                ganttStatus = 'atrasado';
               }
-
-              if (isLateItem) {
-                // Atraso: Mantém preenchimento verde, mas destaca bordas e brilho em vermelho
-                borderColor = '#ef4444';
-                shadowColor = '#ef4444';
-                glowOpacity = 0.8; 
-                glowRadius = 15;
-              } else if (isCanceled) {
-                // Cancelado: Tudo vermelho (preenchimento e bordas)
-                areaColor = 'rgba(239, 68, 68, 0.4)';
-                barColor = '#ef4444';
-                borderColor = '#ef4444';
-                shadowColor = '#ef4444';
-                glowOpacity = 0.7;
-                glowRadius = 12;
-              }
-
-              const blockStyle = {
-                areaColor: areaColor,
-                barColor: barColor,
-                borderColor: borderColor,
-                borderWidth: 2,
-                shadowColor: shadowColor,
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: glowOpacity,
-                shadowRadius: glowRadius,
-                elevation: isLateItem || isCanceled ? 10 : 4,
-                displayProgress: isCanceled ? 100 : roundedProgress,
-                useGradient: !isCanceled,
-                barOpacity: barOpacity
-              };
 
               return (
                 <View key={`rt-${row.type}-${data.id}`} style={[
@@ -1949,33 +1929,9 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                          { left: safeOffset * DAY_WIDTH, width: safeDuration * DAY_WIDTH },
                          row.type === 'project' ? { top: 8, height: 24 } : {},
                          row.type === 'subtask' ? { top: 12, height: 16 } : {},
-                         {
-                           shadowColor: blockStyle.shadowColor,
-                           shadowOffset: blockStyle.shadowOffset,
-                           shadowOpacity: blockStyle.shadowOpacity,
-                           shadowRadius: blockStyle.shadowRadius,
-                           elevation: blockStyle.elevation
-                         }
                        ]}
                      >
-                        <View style={[styles.taskBlockArea, { 
-                           backgroundColor: blockStyle.areaColor, 
-                           borderColor: blockStyle.borderColor, 
-                           borderWidth: blockStyle.borderWidth,
-                           borderRadius: 4,
-                           overflow: 'hidden'
-                        }]}>
-                           {blockStyle.useGradient ? (
-                              <LinearGradient 
-                                 colors={[blockStyle.barColor, shadeColor(blockStyle.barColor, -15)]} 
-                                 start={{x: 0, y: 0}} 
-                                 end={{x: 1, y: 0}} 
-                                 style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%`, opacity: blockStyle.barOpacity }]} 
-                              />
-                           ) : (
-                             <View style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%`, backgroundColor: blockStyle.barColor, opacity: blockStyle.barOpacity }]} />
-                           )}
-                        </View>
+                        <GanttBar progress={isCanceled ? 100 : roundedProgress} status={ganttStatus} />
                      </View>
                   )}
                 </View>
@@ -2236,6 +2192,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: 'Inter, sans-serif',
   },
+  addTarefaBtn: {
+    backgroundColor: 'rgba(0, 155, 114, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(0, 155, 114, 0.4)',
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  addTarefaBtnText: {
+    color: '#005b2e',
+    fontSize: 10,
+    fontWeight: '700',
+    fontFamily: 'Inter, sans-serif',
+  },
   ganttContainer: {
     flex: 1,
   },
@@ -2275,11 +2245,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   headerCell: {
-    color: 'var(--text-main)',
-    fontSize: 11,
-    fontWeight: 'bold',
+    color: 'var(--text-secondary)',
+    fontSize: 10,
+    fontWeight: '700',
     fontFamily: 'Inter, sans-serif',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   
   // Rows
@@ -2309,9 +2279,8 @@ const styles = StyleSheet.create({
   projectTitleText: {
     fontWeight: '700',
     color: 'var(--text-main)',
-    textTransform: 'uppercase',
     fontSize: 12,
-    letterSpacing: 0.5,
+    fontFamily: 'Inter, sans-serif',
   },
   projectDateText: {
     color: 'var(--text-secondary)',
@@ -2379,7 +2348,7 @@ const styles = StyleSheet.create({
   gridLine: {
     width: DAY_WIDTH,
     borderRightWidth: 1,
-    borderRightColor: 'var(--border)',
+    borderRightColor: '#f1f5f9',
   },
   taskBlockContainer: {
     position: 'absolute',
