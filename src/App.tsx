@@ -275,87 +275,11 @@ function App({ user }: { user: User }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN'>('GANTT');
 
-  useEffect(() => {
-    const updateUpwebData = async () => {
-      if (!user?.id) return;
-      try {
-        // Update specific tasks from the latest image
-        const imageTasks = [
-          { title: 'NPS Recepção', assignees: ['CS'], progress: 100, end_date: '2026-05-04', status: 'COMPLETED' },
-          { title: 'NPS RECEPÇÃO', assignees: ['CS'], progress: 100, end_date: '2026-05-04', status: 'COMPLETED' },
-          { title: 'Compra do Material', assignees: ['Theresa'], progress: 100, end_date: '2026-04-09', status: 'COMPLETED' },
-          { title: 'Disponibilização do Material', assignees: ['Theresa'], progress: 100, end_date: '2026-04-20', status: 'COMPLETED' },
-          { title: 'Envio para as Unidades', assignees: ['Jessyka'], progress: 100, end_date: '2026-05-04', status: 'COMPLETED' }
-        ];
-
-        for (const t of imageTasks) {
-          // Update project end_date if it's the project
-          await supabase.from('projects').update({
-            progress: 100,
-            end_date: t.end_date,
-            status: t.status
-          }).ilike('title', t.title);
-
-          await supabase.from('tasks').update({
-            assignees: t.assignees,
-            progress: t.progress,
-            end_date: t.end_date,
-            status: t.status
-          }).eq('title', t.title);
-
-          await supabase.from('subtasks').update({
-            assignees: t.assignees,
-            progress: t.progress,
-            end_date: t.end_date,
-            status: t.status
-          }).eq('title', t.title);
-        }
-
-        // Search case-insensitive for Upweb or UPWEB
-        const { data: projects } = await supabase.from('projects').select('id').ilike('title', 'Upweb');
-        if (!projects || projects.length === 0) return;
-        const projectId = projects[0].id;
-
-        await supabase.from('projects').update({
-          status: 'CANCELED',
-          progress: 100,
-          end_date: '2026-04-22',
-          department: 'EVENTOS'
-        }).eq('id', projectId);
-
-        // Cascade cancel all tasks that are not completed
-        await supabase.from('tasks')
-          .update({ 
-            status: 'CANCELED', 
-            end_date: '2026-04-22',
-            progress: 100
-          })
-          .eq('project_id', projectId)
-          .neq('status', 'COMPLETED');
-
-        // Get tasks to update subtasks
-        const { data: allTasks } = await supabase.from('tasks').select('id').eq('project_id', projectId);
-        if (allTasks && allTasks.length > 0) {
-          const taskIds = allTasks.map(t => t.id);
-          await supabase.from('subtasks')
-            .update({ 
-              status: 'CANCELED', 
-              end_date: '2026-04-22',
-              progress: 100
-            })
-            .in('task_id', taskIds)
-            .neq('status', 'COMPLETED');
-        }
-        fetchProjects();
-      } catch (err) {
-        console.error('Error auto-updating Upweb:', err);
-      }
-    };
-    
-    // Check if we already did this to avoid loops, though it's idempotent
-    updateUpwebData();
-  }, [user?.id]);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [user?.id]);
 
   useEffect(() => {
     const loadTab = async () => {
@@ -1608,7 +1532,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   // Generate Days Header
   const daysArray = Array.from({ length: TIMELINE_DAYS }).map((_, i) => addDays(timelineStart, i));
 
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set(projects.map(p => p.id)));
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const toggleProjectExpansion = (projectId: string) => {
@@ -1944,51 +1868,49 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               let barColor = '';
               let borderColor = '#10b981'; // Verde padrão (margens)
               let shadowColor = '#10b981'; // Brilho verde padrão
-              let glowOpacity = 0.5;
-              let glowRadius = 10;
+              let glowOpacity = 0.4;
+              let glowRadius = 8;
+              let barOpacity = 0.9;
 
               if (row.type === 'project') {
-                // Projeto Normal: Verde claro com brilho verde suave
-                areaColor = 'rgba(167, 243, 208, 0.45)'; 
+                // Projeto Normal: Verde bem suave
+                areaColor = 'rgba(167, 243, 208, 0.4)'; 
                 barColor = '#10b981';
-                glowOpacity = 0.5;
-                glowRadius = 10;
               } else {
-                // Tarefa Normal: Verde mais escuro que o projeto
-                areaColor = 'rgba(5, 150, 105, 0.35)';
-                barColor = row.type === 'subtask' ? '#34d399' : '#10b981';
-                glowOpacity = 0.4;
-                glowRadius = 8;
+                // Tarefa Normal: Verde um pouco mais visível
+                areaColor = 'rgba(16, 185, 129, 0.25)';
+                barColor = '#10b981';
               }
 
               if (isLateItem) {
-                // Atraso: Mantém preenchimento, altera margem e brilho para vermelho
+                // Atraso: Mantém preenchimento verde, mas destaca bordas e brilho em vermelho
                 borderColor = '#ef4444';
                 shadowColor = '#ef4444';
-                glowOpacity = 1.0; 
-                glowRadius = 20;
+                glowOpacity = 0.8; 
+                glowRadius = 15;
               } else if (isCanceled) {
-                // Cancelado: Tudo vermelho
-                areaColor = 'rgba(239, 68, 68, 0.45)';
+                // Cancelado: Tudo vermelho (preenchimento e bordas)
+                areaColor = 'rgba(239, 68, 68, 0.4)';
                 barColor = '#ef4444';
                 borderColor = '#ef4444';
                 shadowColor = '#ef4444';
-                glowOpacity = 1.0;
-                glowRadius = 20;
+                glowOpacity = 0.7;
+                glowRadius = 12;
               }
 
               const blockStyle = {
                 areaColor: areaColor,
                 barColor: barColor,
                 borderColor: borderColor,
-                borderWidth: 2.5, // Margens bem definidas
+                borderWidth: 2,
                 shadowColor: shadowColor,
                 shadowOffset: { width: 0, height: 0 },
                 shadowOpacity: glowOpacity,
                 shadowRadius: glowRadius,
-                elevation: isLateItem || isCanceled ? 12 : 6,
+                elevation: isLateItem || isCanceled ? 10 : 4,
                 displayProgress: isCanceled ? 100 : roundedProgress,
-                useGradient: !isCanceled
+                useGradient: !isCanceled,
+                barOpacity: barOpacity
               };
 
               return (
@@ -2048,10 +1970,10 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                                  colors={[blockStyle.barColor, shadeColor(blockStyle.barColor, -15)]} 
                                  start={{x: 0, y: 0}} 
                                  end={{x: 1, y: 0}} 
-                                 style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%` }]} 
+                                 style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%`, opacity: blockStyle.barOpacity }]} 
                               />
                            ) : (
-                             <View style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%`, backgroundColor: blockStyle.barColor }]} />
+                             <View style={[styles.taskBlockProgress, { width: `${blockStyle.displayProgress}%`, backgroundColor: blockStyle.barColor, opacity: blockStyle.barOpacity }]} />
                            )}
                         </View>
                      </View>
