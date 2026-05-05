@@ -109,7 +109,8 @@ export default function LoginScreen() {
                 placeholder="seunome@adarco.com.br"
                 placeholderTextColor="#94A3B8"
                 value={email}
-                onChange={(e) => setEmail(e.nativeEvent.text)}
+                onFocus={(e: any) => e.target.select()}
+                onChangeText={setEmail}
               />
             </View>
           </View>
@@ -124,7 +125,8 @@ export default function LoginScreen() {
                 placeholder="••••••••"
                 placeholderTextColor="#94A3B8"
                 value={password}
-                onChange={(e) => setPassword(e.nativeEvent.text)}
+                onFocus={(e: any) => e.target.select()}
+                onChangeText={setPassword}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 12 }}>
                 {showPassword ? (

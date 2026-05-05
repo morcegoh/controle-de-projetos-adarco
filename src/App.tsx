@@ -1155,6 +1155,17 @@ Por favor, em caso de dúvidas fale comigo.`);
     }
   };
 
+  const titleInputRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (titleInputRef.current) {
+      setTimeout(() => {
+        titleInputRef.current.focus();
+        titleInputRef.current.select();
+      }, 100);
+    }
+  }, [item.id]); // Trigger when item changes (modal opens or item switches)
+
   return (
     <View style={styles.modalOverlay}>
       <View style={[styles.modalContent, isMobile && { width: '95%', padding: 20, borderRadius: 16 }]}>
@@ -1168,65 +1179,61 @@ Por favor, em caso de dúvidas fale comigo.`);
 
         <ScrollView style={{maxHeight: windowHeight * 0.75}}>
           <Text style={styles.label}>Título</Text>
-          <TouchableOpacity style={{backgroundColor: 'transparent'}}>
-             <input 
-               style={webInputDOMStyle} 
-               value={title} 
-               onChange={(e) => setTitle(e.target.value)} 
-               placeholder={`Nome d${isProject ? 'o projeto' : isTask ? 'a tarefa' : 'a subtarefa'}`} 
-             />
-          </TouchableOpacity>
+          <input 
+            ref={titleInputRef}
+            style={webInputDOMStyle} 
+            value={title} 
+            onFocus={(e) => e.target.select()}
+            onChange={(e) => setTitle(e.target.value)} 
+            placeholder={`Nome d${isProject ? 'o projeto' : isTask ? 'a tarefa' : 'a subtarefa'}`} 
+          />
 
           {isProject && (
             <>
               <View style={{flexDirection: 'row', gap: 16, marginTop: 10, marginBottom: 10}}>
                 <View style={{flex: 1}}>
                   <Text style={styles.label}>Departamento</Text>
-                  <TouchableOpacity style={{backgroundColor: 'transparent'}}>
-                     <input 
-                       style={webInputDOMStyle} 
-                       value={department} 
-                       onChange={(e) => setDepartment(e.target.value)} 
-                       placeholder="Ex: Comercial, TI..." 
-                     />
-                  </TouchableOpacity>
+                  <input 
+                    style={webInputDOMStyle} 
+                    value={department} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setDepartment(e.target.value)} 
+                    placeholder="Ex: Comercial, TI..." 
+                  />
                 </View>
                 <View style={{flex: 1}}>
                   <Text style={styles.label}>Responsável</Text>
-                  <TouchableOpacity style={{backgroundColor: 'transparent'}}>
-                     <input 
-                       style={webInputDOMStyle} 
-                       value={owner} 
-                       onChange={(e) => setOwner(e.target.value)} 
-                       placeholder="Nome do Responsável..." 
-                     />
-                  </TouchableOpacity>
+                  <input 
+                    style={webInputDOMStyle} 
+                    value={owner} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setOwner(e.target.value)} 
+                    placeholder="Nome do Responsável..." 
+                  />
                 </View>
               </View>
 
               <Text style={styles.label}>Status do Projeto</Text>
-              <TouchableOpacity style={{backgroundColor: 'transparent'}}>
-                 <select 
-                   style={webInputDOMStyle} 
-                   value={status} 
-                   onChange={(e) => {
-                     const newStatus = e.target.value;
-                     setStatus(newStatus);
-                     if (newStatus === 'COMPLETED' || newStatus === 'CANCELED') {
-                       setProgress(100);
-                       if (!endDate) setEndDate(new Date().toISOString().split('T')[0]);
-                     } else {
-                       if (newStatus === 'NOT_STARTED') setProgress(0);
-                       setEndDate('');
-                     }
-                   }}
-                 >
-                   <option value="NOT_STARTED">NÃO INICIADO</option>
-                   <option value="IN_PROGRESS">EM ANDAMENTO</option>
-                   <option value="COMPLETED">CONCLUÍDO</option>
-                   <option value="CANCELED">CANCELADO</option>
-                 </select>
-              </TouchableOpacity>
+              <select 
+                style={webInputDOMStyle} 
+                value={status} 
+                onChange={(e) => {
+                  const newStatus = e.target.value;
+                  setStatus(newStatus);
+                  if (newStatus === 'COMPLETED' || newStatus === 'CANCELED') {
+                    setProgress(100);
+                    if (!endDate) setEndDate(new Date().toISOString().split('T')[0]);
+                  } else {
+                    if (newStatus === 'NOT_STARTED') setProgress(0);
+                    setEndDate('');
+                  }
+                }}
+              >
+                <option value="NOT_STARTED">NÃO INICIADO</option>
+                <option value="IN_PROGRESS">EM ANDAMENTO</option>
+                <option value="COMPLETED">CONCLUÍDO</option>
+                <option value="CANCELED">CANCELADO</option>
+              </select>
             </>
           )}
 
@@ -1235,29 +1242,26 @@ Por favor, em caso de dúvidas fale comigo.`);
               {item.isNew && isTask && projects?.length > 0 && (
                 <>
                   <Text style={styles.label}>Projeto</Text>
-                  <TouchableOpacity style={{backgroundColor: 'transparent'}}>
-                    <select 
-                      style={webInputDOMStyle} 
-                      value={selectedProjectId} 
-                      onChange={(e) => setSelectedProjectId(e.target.value)}
-                    >
-                      {projects.map((p: any) => (
-                        <option key={p.id} value={p.id}>{p.title}</option>
-                      ))}
-                    </select>
-                  </TouchableOpacity>
+                  <select 
+                    style={webInputDOMStyle} 
+                    value={selectedProjectId} 
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                  >
+                    {projects.map((p: any) => (
+                      <option key={p.id} value={p.id}>{p.title}</option>
+                    ))}
+                  </select>
                 </>
               )}
 
               <Text style={styles.label}>Atribuído Para (Separado por vírgula)</Text>
-              <TouchableOpacity style={{backgroundColor: 'transparent'}}>
-                 <input 
-                   style={webInputDOMStyle} 
-                   value={assigneesStr} 
-                   onChange={(e) => setAssigneesStr(e.target.value)} 
-                   placeholder="João, Maria" 
-                 />
-              </TouchableOpacity>
+              <input 
+                 style={webInputDOMStyle} 
+                 value={assigneesStr} 
+                 onFocus={(e) => e.target.select()}
+                 onChange={(e) => setAssigneesStr(e.target.value)} 
+                 placeholder="João, Maria" 
+               />
               
               <Text style={styles.label}>Nível de Risco</Text>
               <View style={styles.riskSelectorContainer}>
@@ -1287,7 +1291,7 @@ Por favor, em caso de dúvidas fale comigo.`);
 
               <Text style={styles.label}>Status ({progress}%)</Text>
               <View style={{flexDirection: 'row', gap: 8, alignItems: 'center', marginBottom: 12}}>
-                <TouchableOpacity style={{backgroundColor: 'transparent', flex: 1}}>
+                <View style={{backgroundColor: 'transparent', flex: 1}}>
                   <select 
                     style={{ ...webInputDOMStyle, marginBottom: 0 }} 
                     value={status} 
@@ -1309,7 +1313,7 @@ Por favor, em caso de dúvidas fale comigo.`);
                     <option value="COMPLETED">CONCLUÍDO</option>
                     <option value="CANCELED">CANCELADO</option>
                   </select>
-                </TouchableOpacity>
+                </View>
                 <input 
                   type="range" 
                   min="0" max="100" step="5"
@@ -1326,49 +1330,45 @@ Por favor, em caso de dúvidas fale comigo.`);
               </View>
 
               <Text style={styles.label}>Objetivo da Tarefa</Text>
-              <TouchableOpacity style={{backgroundColor: 'transparent', height: 80, marginBottom: 12}}>
-                 <textarea 
-                   style={{ ...webInputDOMStyle, height: '100%', resize: 'none' }} 
-                   value={objective} 
-                   onChange={(e) => setObjective(e.target.value)} 
-                   placeholder="Descreva o que a tarefa deve resolver..." 
-                 />
-              </TouchableOpacity>
+              <textarea 
+                style={{ ...webInputDOMStyle, height: 80, resize: 'none', marginBottom: 12 }} 
+                value={objective} 
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setObjective(e.target.value)} 
+                placeholder="Descreva o que a tarefa deve resolver..." 
+              />
 
               <Text style={styles.label}>Anotações Gerais</Text>
-              <TouchableOpacity style={{backgroundColor: 'transparent', height: 80, marginBottom: 20}}>
-                 <textarea 
-                   style={{ ...webInputDOMStyle, height: '100%', resize: 'none' }} 
-                   value={updates} 
-                   onChange={(e) => setUpdates(e.target.value)} 
-                   placeholder="Destaques, bloqueios ou informações..." 
-                 />
-              </TouchableOpacity>
+              <textarea 
+                style={{ ...webInputDOMStyle, height: 80, resize: 'none', marginBottom: 20 }} 
+                value={updates} 
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => setUpdates(e.target.value)} 
+                placeholder="Destaques, bloqueios ou informações..." 
+              />
 
               <Text style={[styles.label, { color: 'var(--primary)', marginTop: 10 }]}>Adicionar ao Histórico</Text>
               
               <View style={{flexDirection: 'row', gap: 8, marginBottom: 8}}>
                 <View style={{flex: 1}}>
                   <Text style={[styles.label, { fontSize: 12}]}>Seu Nome</Text>
-                  <TouchableOpacity style={{backgroundColor: 'transparent'}}>
-                    <input 
-                      style={{ ...webInputDOMStyle, paddingTop: '8px', paddingBottom: '8px', fontSize: '12px' }} 
-                      value={newUpdateUser} 
-                      onChange={(e) => setNewUpdateUser(e.target.value)} 
-                      placeholder="Nome..." 
-                    />
-                  </TouchableOpacity>
+                  <input 
+                    style={{ ...webInputDOMStyle, paddingTop: '8px', paddingBottom: '8px', fontSize: '12px' }} 
+                    value={newUpdateUser} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setNewUpdateUser(e.target.value)} 
+                    placeholder="Nome..." 
+                  />
                 </View>
                 <View style={{flex: 2}}>
                   <Text style={[styles.label, { fontSize: 12}]}>Nova Atualização</Text>
-                  <TouchableOpacity style={{backgroundColor: 'transparent', height: 40}}>
-                    <input 
-                      style={{ ...webInputDOMStyle, paddingTop: '8px', paddingBottom: '8px', fontSize: '12px' }} 
-                      value={newUpdateContent} 
-                      onChange={(e) => setNewUpdateContent(e.target.value)} 
-                      placeholder="Descreva o que mudou..." 
-                    />
-                  </TouchableOpacity>
+                  <input 
+                    style={{ ...webInputDOMStyle, paddingTop: '8px', paddingBottom: '8px', fontSize: '12px', height: 38 }} 
+                    value={newUpdateContent} 
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => setNewUpdateContent(e.target.value)} 
+                    placeholder="Descreva o que mudou..." 
+                  />
                 </View>
               </View>
 
@@ -2016,15 +2016,25 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
     setDragOverCol(null);
   };
 
+  const searchInputRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, []);
+
   return (
     <View style={[styles.boardContainer, { padding: windowWidth < 768 ? 16 : 32 }]}>
       <View style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center', backgroundColor: 'var(--bg-card)', paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: 'var(--border)' }}>
         <Search size={18} color="var(--text-muted)" style={{ marginRight: 8 }} />
         <TextInput
+          ref={searchInputRef}
           style={[{ flex: 1, borderWidth: 0, marginBottom: 0, backgroundColor: 'transparent', paddingHorizontal: 0, color: 'var(--text-main)', height: 40, outlineStyle: 'none' } as any]}
           placeholder="Pesquisar tarefas..."
           placeholderTextColor="var(--text-muted)"
           value={searchQuery}
+          onFocus={(e: any) => e.target.select()}
           onChangeText={setSearchQuery}
         />
       </View>

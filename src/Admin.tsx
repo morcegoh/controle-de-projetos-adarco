@@ -154,16 +154,16 @@ export default function AdminScreen() {
           {message ? <Text style={styles.successText}>{message}</Text> : null}
 
           <Text style={styles.label}>Nome Completo</Text>
-          <TextInput style={styles.input} value={fullName} onChangeText={setFullName} />
+          <TextInput style={styles.input} value={fullName} onFocus={(e: any) => e.target.select()} onChangeText={setFullName} placeholderTextColor="var(--text-muted)" placeholder="Nome Completo" />
 
           <Text style={styles.label}>E-mail</Text>
-          <TextInput style={styles.input} keyboardType="email-address" autoCapitalize="none" value={email} onChangeText={setEmail} />
+          <TextInput style={styles.input} keyboardType="email-address" autoCapitalize="none" value={email} onFocus={(e: any) => e.target.select()} onChangeText={setEmail} placeholderTextColor="var(--text-muted)" placeholder="email@exemplo.com" />
 
           <Text style={styles.label}>Cargo</Text>
-          <TextInput style={styles.input} value={role} onChangeText={setRole} />
+          <TextInput style={styles.input} value={role} onFocus={(e: any) => e.target.select()} onChangeText={setRole} placeholderTextColor="var(--text-muted)" placeholder="Diretor, Gerente..." />
 
           <Text style={styles.label}>Telefone</Text>
-          <TextInput style={styles.input} keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
+          <TextInput style={styles.input} keyboardType="phone-pad" value={phone} onFocus={(e: any) => e.target.select()} onChangeText={setPhone} placeholderTextColor="var(--text-muted)" placeholder="(11) 99999-9999" />
 
           <TouchableOpacity style={styles.button} onPress={submitNewUser} disabled={loadingNew}>
             {loadingNew ? <ActivityIndicator color="var(--bg-card)" /> : <Text style={styles.buttonText}>Gerar Acesso</Text>}
@@ -256,6 +256,7 @@ export default function AdminScreen() {
             <Text style={styles.label}>Nome</Text>
             <TextInput 
               style={styles.input} 
+              onFocus={(e: any) => e.target.select()}
               value={editingUser.user_metadata?.full_name || ''} 
               onChangeText={(text) => setEditingUser({...editingUser, user_metadata: {...editingUser.user_metadata, full_name: text}})} 
             />
@@ -263,6 +264,7 @@ export default function AdminScreen() {
             <Text style={styles.label}>Cargo</Text>
             <TextInput 
               style={styles.input} 
+              onFocus={(e: any) => e.target.select()}
               value={editingUser.user_metadata?.role || ''} 
               onChangeText={(text) => setEditingUser({...editingUser, user_metadata: {...editingUser.user_metadata, role: text}})} 
             />
@@ -270,6 +272,7 @@ export default function AdminScreen() {
             <Text style={styles.label}>Telefone</Text>
             <TextInput 
               style={styles.input} 
+              onFocus={(e: any) => e.target.select()}
               value={editingUser.user_metadata?.phone || ''} 
               onChangeText={(text) => setEditingUser({...editingUser, user_metadata: {...editingUser.user_metadata, phone: text}})} 
             />

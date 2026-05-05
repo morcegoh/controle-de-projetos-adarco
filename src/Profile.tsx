@@ -66,7 +66,9 @@ export default function ProfileScreen({ goBack, user }: { goBack: () => void, us
           <TextInput 
             style={styles.input}
             value={displayName}
-            onChange={(e) => setDisplayName(e.nativeEvent.text)}
+            placeholderTextColor="var(--text-muted)"
+            onFocus={(e: any) => e.target.select()}
+            onChangeText={setDisplayName}
             placeholder="Seu nome"
           />
         </View>
@@ -76,7 +78,9 @@ export default function ProfileScreen({ goBack, user }: { goBack: () => void, us
           <TextInput 
             style={styles.input}
             value={role}
-            onChange={(e) => setRole(e.nativeEvent.text)}
+            placeholderTextColor="var(--text-muted)"
+            onFocus={(e: any) => e.target.select()}
+            onChangeText={setRole}
             placeholder="Seu cargo"
           />
         </View>
@@ -86,7 +90,9 @@ export default function ProfileScreen({ goBack, user }: { goBack: () => void, us
           <TextInput 
             style={styles.input}
             value={phone}
-            onChange={(e) => setPhone(e.nativeEvent.text)}
+            placeholderTextColor="var(--text-muted)"
+            onFocus={(e: any) => e.target.select()}
+            onChangeText={setPhone}
             placeholder="Seu telefone"
             keyboardType="phone-pad"
           />
@@ -178,7 +184,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: 'var(--bg-card)',
+    backgroundColor: 'var(--input-bg)',
+    color: 'var(--text-main)',
     outlineStyle: 'none' as any,
   },
   actions: {

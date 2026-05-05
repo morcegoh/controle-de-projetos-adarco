@@ -22,23 +22,23 @@
 }
 
 .dark {
-  --bg-app: #000000;
-  --bg-card: #0A1A10;
+  --bg-app: #020603;
+  --bg-card: #0A0F0C;
   --text-main: #F8FAFC;
-  --text-secondary: #E2E8F0;
+  --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
-  --border: #1B2F23;
-  --border-light: #030805;
-  --primary: #34D399;
-  --danger: #EF4444;
+  --border: #1E2922;
+  --border-light: #0F1713;
+  --primary: #10B981;
+  --danger: #F87171;
   --danger-bg: #450a0a;
-  --warning: #F59E0B;
-  --glass-bg: rgba(10, 26, 16, 0.8);
-  --glass-border: rgba(52, 211, 153, 0.2);
-  --table-header-bg: #030805;
-  --input-bg: #030805;
-  --modal-overlay: rgba(0, 0, 0, 0.8);
-  --shadow: rgba(0, 0, 0, 0.5);
+  --warning: #FBBF24;
+  --glass-bg: rgba(10, 15, 12, 0.8);
+  --glass-border: rgba(16, 185, 129, 0.2);
+  --table-header-bg: #0C120F;
+  --input-bg: #0C120F;
+  --modal-overlay: rgba(0, 0, 0, 0.9);
+  --shadow: rgba(0, 0, 0, 0.7);
 }
 
 html, body, #root {
@@ -57,4 +57,14 @@ html, body, #root {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
 }
