@@ -836,18 +836,21 @@ function App({ user }: { user: User }) {
     
     const isProjectLate = p.progress < 100 && p.status !== 'COMPLETED' && p.status !== 'CANCELED' && targetDate && today > startOfDay(parseISO(targetDate));
     if (isProjectLate) status = 'LATE';
+    else if (p.progress === 100) status = p.status === 'CANCELED' ? 'CANCELED' : 'COMPLETED';
     
     const tasks = p.tasks.map(t => {
        let tStatus = t.status;
        const tTargetDate = t.forecastDate;
        const isTaskLate = t.progress < 100 && t.status !== 'COMPLETED' && t.status !== 'CANCELED' && tTargetDate && today > startOfDay(parseISO(tTargetDate));
        if (isTaskLate) tStatus = 'LATE';
+       else if (t.progress === 100) tStatus = t.status === 'CANCELED' ? 'CANCELED' : 'COMPLETED';
 
        const subtasks = t.subtasks.map(st => {
            let stStatus = st.status;
            const stTargetDate = st.forecastDate;
            const isSubtaskLate = st.progress < 100 && st.status !== 'COMPLETED' && st.status !== 'CANCELED' && stTargetDate && today > startOfDay(parseISO(stTargetDate));
            if (isSubtaskLate) stStatus = 'LATE';
+           else if (st.progress === 100) stStatus = st.status === 'CANCELED' ? 'CANCELED' : 'COMPLETED';
            return { ...st, status: stStatus };
        });
 
@@ -1628,13 +1631,14 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   
   projects.forEach(p => {
     // Hidden concluded/closed projects if they finished before the Monday of the current week (meaning they were finished in a previous week)
-    const isFinished = p.status === 'COMPLETED' || p.status === 'CLOSED' || p.status === 'CANCELED';
-    const finishDate = p.endDate ? new Date(p.endDate) : (p.forecastDate ? new Date(p.forecastDate) : null);
+    const isFinished = p.status === 'COMPLETED' || p.progress === 100 || p.status === 'CANCELED';
+    const finishDate = p.endDate ? (typeof p.endDate === 'string' ? parseISO(p.endDate) : p.endDate) : (p.forecastDate ? (typeof p.forecastDate === 'string' ? parseISO(p.forecastDate) : p.forecastDate) : null);
     
-    // Get the start of the week for today
-    const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    // Timeline window ends at timelineStart + TIMELINE_DAYS
+    const timelineEnd = addDays(timelineStart, TIMELINE_DAYS);
     
-    if (isFinished && finishDate && finishDate < currentWeekStart) {
+    // Only hide if it finished BEFORE the current viewable window starts
+    if (isFinished && finishDate && isValid(finishDate) && finishDate < timelineStart) {
       return; // Skip this project
     }
 
@@ -1860,8 +1864,19 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               const data = row.data;
               const rawStartOffset = safeDifferenceInDays(data.startDate, timelineStart);
               
-              // If completed (100%), use endDate as the boundary. Otherwise use forecastDate.
-              const boundaryDate = (data.progress === 100 && data.endDate) ? data.endDate : (data.forecastDate || data.endDate || data.startDate);
+              const isFinishedRow = data.status === 'COMPLETED' || data.progress === 100 || data.status === 'CANCELED';
+              
+              // Explicitly use endDate if finished, otherwise use forecastDate. 
+              // Fallback to startDate if others are missing to prevent bar stretching to 'today' by accident.
+              let boundaryDate: string | Date = data.startDate;
+              if (isFinishedRow && data.endDate) {
+                boundaryDate = data.endDate;
+              } else if (data.forecastDate) {
+                boundaryDate = data.forecastDate;
+              } else if (data.endDate) {
+                boundaryDate = data.endDate;
+              }
+
               const rawEndOffset = safeDifferenceInDays(boundaryDate, timelineStart);
               
               const isVisibleInTimeline = rawEndOffset >= 0 && rawStartOffset < TIMELINE_DAYS;
@@ -1878,7 +1893,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
               let blockStyle: any = {};
               
               if (row.type === 'project') {
-                isLateItem = data.status === 'LATE';
+                isLateItem = data.status === 'LATE' && data.progress < 100;
                 const isCanceled = data.status === 'CANCELED';
                 blockStyle = {
                   backgroundColor: isCanceled ? 'rgba(239, 68, 68, 0.15)' : (isLateItem ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)'),
@@ -1893,7 +1908,7 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
                   displayProgress: isCanceled ? 100 : data.progress
                 };
               } else {
-                isLateItem = data.status === 'LATE';
+                isLateItem = data.status === 'LATE' && data.progress < 100;
                 const isCanceled = data.status === 'CANCELED';
                 let barColor = row.type === 'subtask' ? '#6EE7B7' : '#0BFD71'; 
                 let areaColor = row.type === 'subtask' ? 'rgba(110, 231, 183, 0.15)' : 'rgba(11, 253, 113, 0.2)';
