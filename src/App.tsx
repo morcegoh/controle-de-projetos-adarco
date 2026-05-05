@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent, TextInput } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { addDays, format, differenceInDays, parseISO, startOfDay, isValid, getISOWeek, getYear, setISOWeek, setYear, startOfISOWeek, setWeek } from 'date-fns';
+import { addDays, format, differenceInDays, parseISO, startOfDay, isValid, getISOWeek, getYear, setISOWeek, setYear, startOfISOWeek, setWeek, startOfWeek } from 'date-fns';
 
 import { Download, User as UserIcon, Settings, LogOut, Moon, CornerDownRight, Search, ChevronDown, ChevronRight } from 'lucide-react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -231,6 +231,38 @@ function App({ user }: { user: User }) {
     const updateUpwebData = async () => {
       if (!user?.id) return;
       try {
+        // Update specific tasks from the latest image
+        const imageTasks = [
+          { title: 'NPS Recepção', assignees: ['CS'], progress: 100, end_date: '2026-05-04', status: 'COMPLETED' },
+          { title: 'NPS RECEPÇÃO', assignees: ['CS'], progress: 100, end_date: '2026-05-04', status: 'COMPLETED' },
+          { title: 'Compra do Material', assignees: ['Theresa'], progress: 100, end_date: '2026-04-09', status: 'COMPLETED' },
+          { title: 'Disponibilização do Material', assignees: ['Theresa'], progress: 100, end_date: '2026-04-20', status: 'COMPLETED' },
+          { title: 'Envio para as Unidades', assignees: ['Jessyka'], progress: 100, end_date: '2026-05-04', status: 'COMPLETED' }
+        ];
+
+        for (const t of imageTasks) {
+          // Update project end_date if it's the project
+          await supabase.from('projects').update({
+            progress: 100,
+            end_date: t.end_date,
+            status: t.status
+          }).ilike('title', t.title);
+
+          await supabase.from('tasks').update({
+            assignees: t.assignees,
+            progress: t.progress,
+            end_date: t.end_date,
+            status: t.status
+          }).eq('title', t.title);
+
+          await supabase.from('subtasks').update({
+            assignees: t.assignees,
+            progress: t.progress,
+            end_date: t.end_date,
+            status: t.status
+          }).eq('title', t.title);
+        }
+
         // Search case-insensitive for Upweb or UPWEB
         const { data: projects } = await supabase.from('projects').select('id').ilike('title', 'Upweb');
         if (!projects || projects.length === 0) return;
@@ -1528,11 +1560,14 @@ const GanttView = ({ projects, timelineStart, onUpdateProgress, onUpdateSubtaskP
   const rows: RenderRow[] = [];
   
   projects.forEach(p => {
-    // Hidden concluded/closed projects if they finished before the current timeline start
-    const isFinished = p.status === 'COMPLETED' || p.status === 'CLOSED';
+    // Hidden concluded/closed projects if they finished before the Monday of the current week (meaning they were finished in a previous week)
+    const isFinished = p.status === 'COMPLETED' || p.status === 'CLOSED' || p.status === 'CANCELED';
     const finishDate = p.endDate ? new Date(p.endDate) : (p.forecastDate ? new Date(p.forecastDate) : null);
     
-    if (isFinished && finishDate && finishDate < timelineStart) {
+    // Get the start of the week for today
+    const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    
+    if (isFinished && finishDate && finishDate < currentWeekStart) {
       return; // Skip this project
     }
 
