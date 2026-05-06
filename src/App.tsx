@@ -2080,12 +2080,12 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
   }, []);
 
   return (
-    <View style={[styles.boardContainer, { padding: windowWidth < 768 ? 16 : 32 }]}>
-      <View style={{ marginBottom: 24, flexDirection: 'row', alignItems: 'center', backgroundColor: 'var(--bg-card)', paddingHorizontal: 16, borderRadius: 8, borderWidth: 1, borderColor: 'var(--border)' }}>
-        <Search size={18} color="var(--text-muted)" style={{ marginRight: 8 }} />
+    <View style={[styles.boardContainer, { padding: 0 }]}>
+      <View style={{ margin: 24, marginBottom: 16, flexDirection: 'row', alignItems: 'center', backgroundColor: 'var(--input-bg)', paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: 'var(--border)', height: 48 }}>
+        <Search size={20} color="var(--text-muted)" style={{ marginRight: 10 }} />
         <TextInput
           ref={searchInputRef}
-          style={[{ flex: 1, borderWidth: 0, marginBottom: 0, backgroundColor: 'transparent', paddingHorizontal: 0, color: 'var(--text-main)', height: 40, outlineStyle: 'none' } as any]}
+          style={[{ flex: 1, borderWidth: 0, marginBottom: 0, backgroundColor: 'transparent', paddingHorizontal: 0, color: 'var(--text-main)', fontSize: 15, fontWeight: '500', height: '100%', outlineStyle: 'none' } as any]}
           placeholder="Pesquisar tarefas..."
           placeholderTextColor="var(--text-muted)"
           value={searchQuery}
@@ -2093,87 +2093,144 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
           onChangeText={setSearchQuery}
         />
       </View>
-      <ScrollView horizontal style={{ flex: 1, overflow: 'visible' }}>
+
+      <ScrollView 
+        horizontal 
+        showsHorizontalScrollIndicator={true}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+      >
         {columns.map(col => {
           const colTasks = tasks.filter(t => 
             (t.status === col.id || (col.id === 'IN_PROGRESS' && t.status === 'IN_PROGRESS')) &&
             t.title.toLowerCase().includes(searchQuery.toLowerCase())
           );
           return (
-          <div 
-            key={col.id} 
-            style={{
-              flex: 1, 
-              minWidth: 320, 
-              display: 'flex',
-              flexDirection: 'column',
-              backgroundColor: dragOverCol === col.id ? 'rgba(0, 91, 46, 0.05)' : 'transparent',
-              borderRadius: 8,
-              border: dragOverCol === col.id ? '2px dashed rgba(0, 91, 46, 0.4)' : '2px solid transparent',
-              transition: 'all 0.2s ease',
-              marginRight: 16, // reset margin right after if it was overwritten
-            }}
-            onDragOver={(e: any) => handleDragOver(e, col.id)}
-            onDrop={(e: any) => handleDrop(e, col.id)}
-            onDragLeave={handleDragLeave}
-          >
-            <View style={[styles.columnHeader, { borderTopColor: col.color }]}>
-               <Text style={styles.columnTitle}>{col.title}</Text>
-               <View style={styles.badge}><Text style={styles.badgeText}>{colTasks.length}</Text></View>
-            </View>
-            
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {colTasks.map(task => {
-                let riskColor = 'var(--primary)';
-                if (task.riskLevel === 'MEDIUM') riskColor = '#F59E0B';
-                if (task.riskLevel === 'HIGH') riskColor = 'var(--danger)';
-                
-                const isHighlighted = highlightedTaskId === task.id;
+            <View 
+              key={col.id} 
+              style={{
+                width: 320,
+                marginRight: 20,
+                backgroundColor: dragOverCol === col.id ? 'rgba(0, 155, 114, 0.05)' : 'var(--bg-app)',
+                borderRadius: 16,
+                borderWidth: dragOverCol === col.id ? 2 : 1,
+                borderColor: dragOverCol === col.id ? 'var(--primary)' : 'var(--border)',
+                borderStyle: dragOverCol === col.id ? 'dashed' : 'solid',
+                overflow: 'hidden',
+                display: 'flex',
+                height: '100%',
+              } as any}
+              // @ts-ignore
+              onDragOver={(e: any) => handleDragOver(e, col.id)}
+              // @ts-ignore
+              onDrop={(e: any) => handleDrop(e, col.id)}
+              // @ts-ignore
+              onDragLeave={handleDragLeave}
+            >
+              <View style={[styles.columnHeader, { borderTopWidth: 4, borderTopColor: col.color, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: 'var(--bg-card)' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={[styles.columnTitle, { fontSize: 13, letterSpacing: 0.5 }]}>{col.title}</Text>
+                  <View style={[styles.badge, { backgroundColor: 'var(--border)', minWidth: 24 }]}>
+                    <Text style={[styles.badgeText, { fontSize: 11 }]}>{colTasks.length}</Text>
+                  </View>
+                </View>
+              </View>
+              
+              <ScrollView 
+                style={{ flex: 1, padding: 12 }} 
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 20 }}
+              >
+                {colTasks.length === 0 ? (
+                  <View style={{ padding: 24, alignItems: 'center', opacity: 0.5 }}>
+                    <Text style={{ color: 'var(--text-muted)', fontSize: 12 }}>Arraste tarefas aqui</Text>
+                  </View>
+                ) : (
+                  colTasks.map(task => {
+                    let riskColor = 'var(--primary)';
+                    if (task.riskLevel === 'MEDIUM') riskColor = '#F59E0B';
+                    if (task.riskLevel === 'HIGH') riskColor = 'var(--danger)';
+                    
+                    const isHighlighted = highlightedTaskId === task.id;
 
-                return (
-                  <div 
-                    key={task.id} 
-                    draggable
-                    onDragStart={(e: any) => {
-                      e.dataTransfer.setData('taskId', task.id);
-                      e.currentTarget.style.opacity = '0.5';
-                    }}
-                    onDragEnd={(e: any) => {
-                      e.currentTarget.style.opacity = '1';
-                    }}
-                    style={{ cursor: 'grab' }}
-                  >
-                    <TouchableOpacity 
-                      style={[
-                        styles.kanbanCard, 
-                        { borderLeftWidth: 3, borderLeftColor: riskColor, padding: isMobile ? 12 : 16 },
-                        isHighlighted ? { borderColor: 'var(--primary)', borderWidth: 2, backgroundColor: 'var(--bg-app)', transform: [{scale: 1.02}] } as any : {}
-                      ]} 
-                      onPress={() => {
-                        onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: task.projectId });
-                      }}
-                      title={task.title}
-                    >
-                      <Text style={styles.cardProjectTag} title={task.projectName}>{task.projectName}</Text>
-                      <Text style={styles.cardTitle} title={task.title}>{task.title}</Text>
-                      <Text style={styles.cardAssignee} title={task.assignees.join(', ')}>{task.assignees.join(', ')}</Text>
-                      {task.updates ? <Text style={styles.cardUpdates} numberOfLines={2} title={task.updates}>{task.updates}</Text> : null}
-                      <View style={styles.cardFooter}>
-                        <Text style={[styles.cardDate, task.status === 'LATE' && { color: 'var(--danger)', opacity: 1 }]}>
-                          {safeFormatDate(task.startDate, 'dd/MM')} - {safeFormatDate(task.forecastDate, 'dd/MM', 'TBD')}
-                        </Text>
-                        <Text style={[styles.cardProgress, { color: col.color }]}>{task.progress}%</Text>
-                      </View>
-                    </TouchableOpacity>
-                  </div>
-                )
-              })}
-            </ScrollView>
-          </div>
-        );
-      })}
+                    return (
+                      <div 
+                        key={task.id} 
+                        draggable
+                        onDragStart={(e: any) => {
+                          e.dataTransfer.setData('taskId', task.id);
+                          e.currentTarget.style.opacity = '0.5';
+                        }}
+                        onDragEnd={(e: any) => {
+                          e.currentTarget.style.opacity = '1';
+                        }}
+                        style={{ cursor: 'grab', marginBottom: 12 }}
+                      >
+                        <TouchableOpacity 
+                          style={[
+                            styles.kanbanCard, 
+                            { 
+                              borderLeftWidth: 4, 
+                              borderLeftColor: riskColor, 
+                              padding: 16,
+                              borderRadius: 12,
+                              backgroundColor: 'var(--bg-card)',
+                              shadowColor: '#000',
+                              shadowOffset: { width: 0, height: 2 },
+                              shadowOpacity: 0.1,
+                              shadowRadius: 4,
+                              elevation: 2,
+                            },
+                            isHighlighted && { 
+                              borderColor: 'var(--primary)', 
+                              borderWidth: 2, 
+                              transform: [{scale: 1.02}] 
+                            } as any
+                          ]} 
+                          onPress={() => {
+                            onEditRequest({ type: 'task', isNew: false, taskData: task, parentProjectId: task.projectId });
+                          }}
+                          title={task.title}
+                        >
+                          <Text style={[styles.cardProjectTag, { fontSize: 10, marginBottom: 4, opacity: 0.7 }]} title={task.projectName}>{task.projectName}</Text>
+                          <Text style={[styles.cardTitle, { fontSize: 14, fontWeight: '600', marginBottom: 8 }]} title={task.title}>{task.title}</Text>
+                          
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                            <UserIcon size={12} color="var(--text-muted)" style={{ marginRight: 6 }} />
+                            <Text style={[styles.cardAssignee, { fontSize: 12, marginBottom: 0 }]} title={task.assignees.join(', ')}>{task.assignees.join(', ')}</Text>
+                          </View>
+
+                          {task.updates ? (
+                            <View style={{ backgroundColor: 'var(--bg-app)', padding: 8, borderRadius: 6, marginBottom: 12 }}>
+                              <Text style={[styles.cardUpdates, { fontSize: 11, fontStyle: 'italic' }]} numberOfLines={2} title={task.updates}>
+                                "{task.updates}"
+                              </Text>
+                            </View>
+                          ) : null}
+
+                          <View style={[styles.cardFooter, { borderTopWidth: 1, borderTopColor: 'var(--border)', paddingTop: 10, marginTop: 4 }]}>
+                            <Text style={[styles.cardDate, { fontSize: 11 }, task.status === 'LATE' && { color: 'var(--danger)', fontWeight: 'bold' }]}>
+                              {safeFormatDate(task.startDate, 'dd/MM')} - {safeFormatDate(task.forecastDate, 'dd/MM', 'TBD')}
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <View style={{ width: 40, height: 4, backgroundColor: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                                <View style={{ width: `${task.progress}%`, height: '100%', backgroundColor: col.color }} />
+                              </View>
+                              <Text style={[styles.cardProgress, { color: col.color, fontSize: 11, fontWeight: '700' }]}>{task.progress}%</Text>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      </div>
+                    )
+                  })
+                )}
+              </ScrollView>
+            </View>
+          );
+        })}
       </ScrollView>
     </View>
+
   );
 };
 
@@ -2526,7 +2583,12 @@ const styles = StyleSheet.create({
     color: 'var(--text-secondary)',
     opacity: 0.8,
     fontSize: 12,
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  cardUpdates: {
+    color: 'var(--text-secondary)',
+    fontSize: 11,
+    lineHeight: 16,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -2706,16 +2768,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 12,
     fontFamily: 'Inter, sans-serif',
-  },
-  cardUpdates: {
-    color: 'var(--text-secondary)',
-    fontSize: 12,
-    marginBottom: 12,
-    fontStyle: 'italic',
-    fontFamily: 'Inter, sans-serif',
-    backgroundColor: 'var(--shadow)',
-    padding: 8,
-    borderRadius: 4,
   },
   inlineRiskDot: {
     width: 6,
