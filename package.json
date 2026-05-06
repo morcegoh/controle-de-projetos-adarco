@@ -12,6 +12,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@fontsource/montserrat": "^5.2.8",
     "@google/genai": "^1.29.0",
     "@react-native-async-storage/async-storage": "^3.0.2",
     "@supabase/supabase-js": "^2.105.1",
@@ -30,6 +31,7 @@
     "react-dom": "^19.0.1",
     "react-native": "^0.85.2",
     "react-native-web": "^0.21.2",
+    "recharts": "^3.8.1",
     "vite": "^6.2.3",
     "xlsx": "^0.18.5"
   },

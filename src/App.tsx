@@ -11,6 +11,7 @@ import { supabase } from './supabase';
 import LoginScreen from './Login';
 import ProfileScreen from './Profile';
 import AdminScreen from './Admin';
+import Dashboard from './Dashboard';
 
 const safeFormatDate = (dateStr?: string, fmt: string = 'dd/MM/yy', fallback = '--/--') => {
   if (!dateStr) return fallback;
@@ -274,7 +275,7 @@ function App({ user }: { user: User }) {
   }, []);
 
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN'>('GANTT');
+  const [activeTab, setActiveTab] = useState<'DASHBOARD' | 'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN'>('DASHBOARD');
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
@@ -298,7 +299,7 @@ function App({ user }: { user: User }) {
     loadTab();
   }, []);
 
-  const handleTabChange = async (tab: 'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN') => {
+  const handleTabChange = async (tab: 'DASHBOARD' | 'GANTT' | 'BOARD' | 'PROFILE' | 'ADMIN') => {
     // Sempre que a Timeline for acessada (mesmo se já estiver nela), minimiza tudo automaticamente
     if (tab === 'GANTT') {
       setExpandedProjects(new Set());
@@ -924,6 +925,12 @@ function App({ user }: { user: User }) {
             
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <TouchableOpacity 
+                style={[styles.tab, activeTab === 'DASHBOARD' && styles.activeTab]}
+                onPress={() => handleTabChange('DASHBOARD')}
+              >
+                <Text style={[styles.tabText, activeTab === 'DASHBOARD' && styles.activeTabText, isMobile && { fontSize: 12 }]}>{isMobile ? 'Painel' : 'Dashboard'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
                 style={[styles.tab, activeTab === 'GANTT' && styles.activeTab]}
                 onPress={() => handleTabChange('GANTT')}
               >
@@ -981,7 +988,9 @@ function App({ user }: { user: User }) {
 
       {/* Main Content */}
       <View style={{flex: 1}}>
-        {activeTab === 'ADMIN' ? (
+        {activeTab === 'DASHBOARD' ? (
+          <Dashboard />
+        ) : activeTab === 'ADMIN' ? (
           <AdminScreen />
         ) : activeTab === 'PROFILE' ? (
           <ProfileScreen goBack={() => handleTabChange('GANTT')} user={user} />
