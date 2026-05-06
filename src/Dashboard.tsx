@@ -210,9 +210,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
                <span className="w-1.5 h-6 bg-emerald-400 rounded-full"></span>
                Projetos Ativos por Departamento
              </h4>
-             <div className="h-[250px] w-full">
+             <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={metrics.activeByDept}>
+                  <BarChart data={metrics.activeByDept} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
                     <defs>
                       <linearGradient id="barGradientGreen" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#a7f3d0" stopOpacity={0.6} />
@@ -228,6 +228,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
                       axisLine={false} 
                       tickLine={false} 
                       tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
+                      interval={0}
+                      minTickGap={10}
                     />
                     <YAxis 
                       axisLine={false} 
@@ -243,6 +245,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
                       strokeWidth={1}
                       filter="url(#neonShadowGreen)"
                       radius={[4, 4, 0, 0]}
+                      barSize={40}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -255,15 +258,17 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
                <span className="w-1.5 h-6 bg-emerald-500 rounded-full"></span>
                Histórico de Entregas (Sucesso)
              </h4>
-             <div className="h-[250px] w-full text-xs">
+             <div className="h-[280px] w-full text-xs">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={metrics.deliveredByDept}>
+                  <BarChart data={metrics.deliveredByDept} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="name" 
                       axisLine={false} 
                       tickLine={false} 
                       tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
+                      interval={0}
+                      minTickGap={10}
                     />
                     <YAxis 
                       axisLine={false} 
@@ -279,6 +284,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
                       strokeWidth={1}
                       filter="url(#neonShadowGreen)"
                       radius={[4, 4, 0, 0]}
+                      barSize={40}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -291,9 +297,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
                <span className="w-1.5 h-6 bg-red-400 rounded-full"></span>
                Inadimplência de Prazos
              </h4>
-             <div className="h-[250px] w-full">
+             <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={metrics.lateByDept}>
+                  <BarChart data={metrics.lateByDept} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
                     <defs>
                       <linearGradient id="barGradientRed" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#fecaca" stopOpacity={0.5} />
@@ -309,6 +315,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
                       axisLine={false} 
                       tickLine={false} 
                       tick={{ fontSize: 10, fill: '#64748b', fontWeight: 600 }}
+                      interval={0}
+                      minTickGap={10}
                     />
                     <YAxis 
                       axisLine={false} 
@@ -324,6 +332,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
                       strokeWidth={1}
                       filter="url(#neonShadowRed)"
                       radius={[4, 4, 0, 0]}
+                      barSize={40}
                     />
                   </BarChart>
                 </ResponsiveContainer>
