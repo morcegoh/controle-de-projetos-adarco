@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, Touc
 import { LinearGradient } from 'expo-linear-gradient';
 import { addDays, format, differenceInDays, parseISO, startOfDay, isValid, getISOWeek, getYear, setISOWeek, setYear, startOfISOWeek, setWeek, startOfWeek } from 'date-fns';
 
-import { Download, User as UserIcon, Settings, LogOut, Moon, CornerDownRight, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { Download, User as UserIcon, Settings, LogOut, Moon, CornerDownRight, Search, ChevronDown, ChevronRight, Info, CheckCircle2, Clock, AlertCircle, X } from 'lucide-react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemeProvider, useTheme } from './theme';
 import { User } from '@supabase/supabase-js';
@@ -511,8 +511,16 @@ function App({ user }: { user: User }) {
     } catch (e) { console.error('Delete project error:', e); }
   };
 
-  const handleSaveTask = async (projectId: string, taskData: Partial<Task>) => {
+  const handleSaveTask = async (projectId: string, taskData: any) => {
     try {
+      let finalUpdates = taskData.updates || '';
+      if (taskData.newHistoryEntry) {
+        const now = new Date();
+        const timestamp = format(now, 'dd/MM/yy HH:mm');
+        const newEntry = `[${timestamp}] ${taskData.newHistoryEntry.user}: ${taskData.newHistoryEntry.content}`;
+        finalUpdates = finalUpdates ? `${finalUpdates}\n${newEntry}` : newEntry;
+      }
+
       const payload = {
         project_id: projectId,
         title: taskData.title,
@@ -522,8 +530,7 @@ function App({ user }: { user: User }) {
         end_date: (taskData.progress === 100 || taskData.status === 'CANCELED') ? (taskData.endDate || new Date().toISOString().split('T')[0]) : null,
         status: taskData.status,
         risk_level: taskData.riskLevel,
-        updates: taskData.updates,
-        // objective: taskData.objective, // Removido temporariamente pois a coluna não existe no Supabase
+        updates: finalUpdates,
         progress: (taskData.status === 'CANCELED') ? 100 : (taskData.progress || 0)
       };
 
@@ -561,8 +568,16 @@ function App({ user }: { user: User }) {
     } catch (e) { console.error('Delete task error:', e); }
   };
 
-  const handleSaveSubtask = async (taskId: string, subtaskData: Partial<Subtask>) => {
+  const handleSaveSubtask = async (taskId: string, subtaskData: any) => {
     try {
+      let finalUpdates = subtaskData.updates || '';
+      if (subtaskData.newHistoryEntry) {
+        const now = new Date();
+        const timestamp = format(now, 'dd/MM/yy HH:mm');
+        const newEntry = `[${timestamp}] ${subtaskData.newHistoryEntry.user}: ${subtaskData.newHistoryEntry.content}`;
+        finalUpdates = finalUpdates ? `${finalUpdates}\n${newEntry}` : newEntry;
+      }
+
       const payload = {
         task_id: taskId,
         title: subtaskData.title,
@@ -572,8 +587,7 @@ function App({ user }: { user: User }) {
         end_date: (subtaskData.progress === 100 || subtaskData.status === 'CANCELED') ? (subtaskData.endDate || new Date().toISOString().split('T')[0]) : null,
         status: subtaskData.status,
         risk_level: subtaskData.riskLevel,
-        updates: subtaskData.updates,
-        // objective: subtaskData.objective, // Removido temporariamente pois a coluna não existe no Supabase
+        updates: finalUpdates,
         progress: (subtaskData.status === 'CANCELED') ? 100 : (subtaskData.progress || 0)
       };
 
@@ -1097,7 +1111,7 @@ const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSave
   const [updates, setUpdates] = useState(data.updates || '');
   const [objective, setObjective] = useState(data.objective || '');
   const [newUpdateContent, setNewUpdateContent] = useState('');
-  const [newUpdateUser, setNewUpdateUser] = useState('Heder Santos');
+  const [newUpdateUser, setNewUpdateUser] = useState(userEmail || 'Usuário');
   const [selectedProjectId, setSelectedProjectId] = useState(item.parentProjectId || (projects?.length > 0 ? projects[0].id : ''));
   const [selectedTaskId, setSelectedTaskId] = useState(item.parentTaskId || '');
   const [selectedConvertParentId, setSelectedConvertParentId] = useState('');
@@ -1242,13 +1256,14 @@ Por favor, em caso de dúvidas fale comigo.`);
         ) : null}
 
         <ScrollView style={{maxHeight: windowHeight * 0.75}}>
-          <Text style={styles.label}>Título</Text>
+          <Text style={styles.label}>Título {!item.isNew && !isProject && <Text style={{fontSize: 10, color: 'var(--text-muted)'}}>(Bloqueado)</Text>}</Text>
           <input 
             ref={titleInputRef}
-            style={webInputDOMStyle} 
+            style={{ ...webInputDOMStyle, ...(!item.isNew && !isProject ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }} 
             value={title} 
-            onFocus={(e) => e.target.select()}
+            onFocus={(e) => !item.isNew && !isProject ? null : e.target.select()}
             onChange={(e) => setTitle(e.target.value)} 
+            disabled={!item.isNew && !isProject}
             placeholder={`Nome d${isProject ? 'o projeto' : isTask ? 'a tarefa' : 'a subtarefa'}`} 
           />
 
@@ -1329,12 +1344,13 @@ Por favor, em caso de dúvidas fale comigo.`);
                 </>
               )}
 
-              <Text style={styles.label}>Atribuído Para (Separado por vírgula)</Text>
+              <Text style={styles.label}>Atribuído Para {!item.isNew && <Text style={{fontSize: 10, color: 'var(--text-muted)'}}>(Bloqueado)</Text>}</Text>
               <input 
-                 style={webInputDOMStyle} 
+                 style={{ ...webInputDOMStyle, ...(!item.isNew ? { opacity: 0.6, cursor: 'not-allowed' } : {}) }} 
                  value={assigneesStr} 
-                 onFocus={(e) => e.target.select()}
+                 onFocus={(e) => !item.isNew ? null : e.target.select()}
                  onChange={(e) => setAssigneesStr(e.target.value)} 
+                 disabled={!item.isNew}
                  placeholder="João, Maria" 
                />
               
@@ -1428,16 +1444,6 @@ Por favor, em caso de dúvidas fale comigo.`);
               
               <View style={{flexDirection: 'row', gap: 8, marginBottom: 8}}>
                 <View style={{flex: 1}}>
-                  <Text style={[styles.label, { fontSize: 12}]}>Seu Nome</Text>
-                  <input 
-                    style={{ ...webInputDOMStyle, paddingTop: '8px', paddingBottom: '8px', fontSize: '12px' }} 
-                    value={newUpdateUser} 
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => setNewUpdateUser(e.target.value)} 
-                    placeholder="Nome..." 
-                  />
-                </View>
-                <View style={{flex: 2}}>
                   <Text style={[styles.label, { fontSize: 12}]}>Nova Atualização</Text>
                   <input 
                     style={{ ...webInputDOMStyle, paddingTop: '8px', paddingBottom: '8px', fontSize: '12px', height: 38 }} 
@@ -2048,6 +2054,90 @@ const GanttView = ({ projects, timelineStart, expandedProjects, setExpandedProje
 };
 
 // -------------------------------------------------------------
+// TASK INFO MODAL COMPONENT
+// -------------------------------------------------------------
+const TaskInfoModal = ({ task, onClose }: { task: any, onClose: () => void }) => {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
+
+  if (!task) return null;
+
+  const updatesList = task.updates ? task.updates.split('\n').filter(Boolean).reverse() : [];
+
+  return (
+    <View style={styles.modalOverlay}>
+      <View style={[styles.modalContent, { width: isMobile ? '95%' : 600, padding: 0, borderRadius: 24, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }]}>
+        <View style={{ padding: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'var(--border)', backgroundColor: 'var(--bg-card)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: 'var(--text-main)' }}>{task.title}</Text>
+            <Text style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Informações e Histórico</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
+            <X size={24} color="var(--text-muted)" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={{ padding: 24, maxHeight: windowHeight * 0.7 }}>
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Objetivo</Text>
+            <Text style={{ fontSize: 14, color: 'var(--text-main)', lineHeight: 22 }}>{task.objective || 'Nenhum objetivo descrito.'}</Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', gap: 24, marginBottom: 24 }}>
+             <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Status</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                   <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: task.status === 'COMPLETED' ? 'var(--primary)' : task.status === 'LATE' ? 'var(--danger)' : '#0BFD71' }} />
+                   <Text style={{ fontSize: 13, fontWeight: '600', color: 'var(--text-main)' }}>{task.status} ({task.progress}%)</Text>
+                </View>
+             </View>
+             <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Responsáveis</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: 'var(--text-main)' }}>{task.assignees.join(', ')}</Text>
+             </View>
+          </View>
+
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Histórico de Atualizações</Text>
+            {updatesList.length === 0 ? (
+              <View style={{ padding: 20, backgroundColor: 'var(--bg-app)', borderRadius: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>Nenhuma atualização registrada.</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {updatesList.map((update, idx) => {
+                  const dateMatch = update.match(/^\[(.*?)\]/);
+                  const dateStr = dateMatch ? dateMatch[1] : '';
+                  const content = dateMatch ? update.replace(dateMatch[0], '').trim() : update;
+                  
+                  return (
+                    <View key={idx} style={{ padding: 14, backgroundColor: 'var(--bg-app)', borderRadius: 12, borderLeftWidth: 3, borderLeftColor: idx === 0 ? 'var(--primary)' : 'var(--border)' }}>
+                      {dateStr && (
+                        <Text style={{ fontSize: 10, fontWeight: '700', color: 'var(--primary)', marginBottom: 4 }}>{dateStr}</Text>
+                      )}
+                      <Text style={{ fontSize: 13, color: 'var(--text-main)', lineHeight: 18 }}>{content}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        <View style={{ padding: 20, backgroundColor: 'var(--bg-app)', borderTopWidth: 1, borderTopColor: 'var(--border)', alignItems: 'flex-end' }}>
+          <TouchableOpacity 
+            onPress={onClose}
+            style={{ backgroundColor: 'var(--primary)', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, shadowColor: 'var(--primary)', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Entendido</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// -------------------------------------------------------------
 // BOARD VIEW (KANBAN) COMPONENT
 // -------------------------------------------------------------
 const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], onEditRequest: any, highlightedTaskId?: string | null }) => {
@@ -2055,6 +2145,7 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
   const isMobile = windowWidth < 768;
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [infoTask, setInfoTask] = useState<any>(null);
 
   const columns = [
     { id: 'NOT_STARTED', title: 'NÃO INICIADO', color: 'var(--text-secondary)' },
@@ -2219,13 +2310,29 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
                           
                           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                             <UserIcon size={12} color="var(--text-muted)" style={{ marginRight: 6 }} />
-                            <Text style={[styles.cardAssignee, { fontSize: 12, marginBottom: 0 }]} title={task.assignees.join(', ')}>{task.assignees.join(', ')}</Text>
+                            <Text style={[styles.cardAssignee, { fontSize: 12, marginBottom: 0, flex: 1 }]} numberOfLines={1} title={task.assignees.join(', ')}>{task.assignees.join(', ')}</Text>
+                            <TouchableOpacity 
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                setInfoTask(task);
+                              }}
+                              style={{ 
+                                padding: 6, 
+                                backgroundColor: 'var(--bg-app)', 
+                                borderRadius: 8, 
+                                borderWidth: 1, 
+                                borderColor: 'var(--primary-light)',
+                                marginLeft: 8
+                              }}
+                            >
+                               <Info size={14} color="var(--primary)" />
+                            </TouchableOpacity>
                           </View>
 
                           {task.updates ? (
                             <View style={{ backgroundColor: 'var(--bg-app)', padding: 8, borderRadius: 6, marginBottom: 12 }}>
                               <Text style={[styles.cardUpdates, { fontSize: 11, fontStyle: 'italic' }]} numberOfLines={2} title={task.updates}>
-                                "{task.updates}"
+                                "{task.updates.split('\n').filter(Boolean).pop()}"
                               </Text>
                             </View>
                           ) : null}
@@ -2251,8 +2358,9 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
           );
         })}
       </ScrollView>
-    </View>
 
+      {infoTask && <TaskInfoModal task={infoTask} onClose={() => setInfoTask(null)} />}
+    </View>
   );
 };
 
