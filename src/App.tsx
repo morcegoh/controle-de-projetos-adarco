@@ -452,7 +452,7 @@ function App({ user }: { user: User }) {
         forecast_date: projectData.forecastDate,
         end_date: (projectData.progress === 100 || projectData.status === 'CANCELED') ? (projectData.endDate || new Date().toISOString().split('T')[0]) : null,
         status: projectData.status,
-        objective: projectData.objective,
+        // objective: projectData.objective, // Removido temporariamente pois a coluna não existe no Supabase
         user_id: user.id
       };
       
@@ -522,7 +522,7 @@ function App({ user }: { user: User }) {
         status: taskData.status,
         risk_level: taskData.riskLevel,
         updates: taskData.updates,
-        objective: taskData.objective,
+        // objective: taskData.objective, // Removido temporariamente pois a coluna não existe no Supabase
         progress: (taskData.status === 'CANCELED') ? 100 : (taskData.progress || 0)
       };
 
@@ -572,7 +572,7 @@ function App({ user }: { user: User }) {
         status: subtaskData.status,
         risk_level: subtaskData.riskLevel,
         updates: subtaskData.updates,
-        objective: subtaskData.objective,
+        // objective: subtaskData.objective, // Removido temporariamente pois a coluna não existe no Supabase
         progress: (subtaskData.status === 'CANCELED') ? 100 : (subtaskData.progress || 0)
       };
 
@@ -1105,6 +1105,19 @@ const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSave
         setErrorMessage('O título do projeto é obrigatório.');
         return;
       }
+      
+      // Validação de Duplicidade
+      const isDuplicate = projects.some((p: any) => 
+        p.title.trim().toLowerCase() === title.trim().toLowerCase() && 
+        p.id !== data.id &&
+        p.status !== 'COMPLETED' && p.status !== 'CANCELED'
+      );
+
+      if (isDuplicate) {
+        setErrorMessage('Já existe um projeto ativo com este nome. Por favor, utilize um título diferente.');
+        return;
+      }
+
       if (!owner.trim()) {
         setErrorMessage('O responsável pelo projeto é obrigatório.');
         return;
