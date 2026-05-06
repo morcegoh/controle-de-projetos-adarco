@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { 
   BarChart, 
   Bar, 
@@ -6,8 +6,7 @@ import {
   YAxis, 
   CartesianGrid, 
   Tooltip, 
-  ResponsiveContainer, 
-  Cell 
+  ResponsiveContainer 
 } from 'recharts';
 import { 
   Briefcase, 
@@ -17,42 +16,53 @@ import {
   TrendingUp
 } from 'lucide-react';
 
-// Mock Data
-const kpiData = {
-  total: 42,
-  delivered: 18,
-  inProgress: 15,
-  late: 9
+// Type definitions to match App.tsx
+type Subtask = {
+  id: string;
+  title: string;
+  assignees: string[];
+  progress: number;
+  startDate: string;
+  forecastDate: string;
+  endDate?: string;
+  status: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  updates: string;
+  objective?: string;
 };
 
-const departmentActiveData = [
-  { name: 'Tecnologia', value: 12 },
-  { name: 'Vendas', value: 8 },
-  { name: 'MKT', value: 7 },
-  { name: 'CS / Eventos', value: 15 },
-];
+type Task = {
+  id: string;
+  title: string;
+  assignees: string[];
+  progress: number;
+  startDate: string;
+  forecastDate: string;
+  endDate?: string;
+  status: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  updates: string;
+  objective?: string;
+  subtasks: Subtask[];
+};
 
-const departmentDeliveredData = [
-  { name: 'Tecnologia', value: 25 },
-  { name: 'Vendas', value: 18 },
-  { name: 'MKT', value: 12 },
-  { name: 'CS / Eventos', value: 10 },
-];
+type Project = {
+  id: string;
+  title: string;
+  department?: string;
+  owner?: string;
+  progress: number;
+  startDate: string;
+  forecastDate: string;
+  endDate?: string;
+  status: string;
+  objective?: string;
+  tasks: Task[];
+};
 
-const departmentLateData = [
-  { name: 'Tecnologia', value: 3 },
-  { name: 'Vendas', value: 1 },
-  { name: 'MKT', value: 4 },
-  { name: 'CS / Eventos', value: 1 },
-];
-
-const teamWorkload = [
-  { name: 'André Silva', pending: 5, late: 2 },
-  { name: 'Beatriz Costa', pending: 3, late: 0 },
-  { name: 'Carlos Oliveira', pending: 8, late: 4 },
-  { name: 'Daniela Lima', pending: 4, late: 1 },
-  { name: 'Eduardo Santos', pending: 6, late: 0 },
-];
+interface DashboardProps {
+  projects: Project[];
+}
 
 // Custom Tooltip Component
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -61,7 +71,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
       <div className="bg-white p-3 border border-slate-200 shadow-xl rounded-lg font-sans">
         <p className="text-sm font-semibold text-slate-800 mb-1">{label}</p>
         <p className="text-xs text-slate-600 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: payload[0].color }}></span>
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: payload[0].color || payload[0].fill }}></span>
           Quantidade: <span className="font-bold">{payload[0].value}</span>
         </p>
       </div>
@@ -70,7 +80,62 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-export const Dashboard = () => {
+export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
+  
+  // Memoized Calculations
+  const metrics = useMemo(() => {
+    const total = projects.length;
+    const delivered = projects.filter(p => p.status === 'COMPLETED').length;
+    const late = projects.filter(p => p.status === 'LATE').length;
+    // Projects that are not completed, late or canceled are "in progress"
+    const inProgress = projects.filter(p => p.status !== 'COMPLETED' && p.status !== 'LATE' && p.status !== 'CANCELED').length;
+
+    // Department grouping
+    const departments = Array.from(new Set(projects.map(p => p.department || 'Sem Depto')));
+    
+    const activeByDept = departments.map(dept => ({
+      name: dept,
+      value: projects.filter(p => p.department === dept && p.status !== 'COMPLETED' && p.status !== 'CANCELED').length
+    })).sort((a, b) => b.value - a.value);
+
+    const deliveredByDept = departments.map(dept => ({
+      name: dept,
+      value: projects.filter(p => p.department === dept && p.status === 'COMPLETED').length
+    })).sort((a, b) => b.value - a.value);
+
+    const lateByDept = departments.map(dept => ({
+      name: dept,
+      value: projects.filter(p => p.department === dept && p.status === 'LATE').length
+    })).sort((a, b) => b.value - a.value);
+
+    // Team Workload
+    const teamStats: Record<string, { name: string, pending: number, late: number }> = {};
+    
+    projects.forEach(p => {
+      p.tasks.forEach(t => {
+        // Task assignees
+        t.assignees.forEach(name => {
+          if (!teamStats[name]) teamStats[name] = { name, pending: 0, late: 0 };
+          if (t.status === 'LATE') teamStats[name].late++;
+          else if (t.status !== 'COMPLETED' && t.status !== 'CANCELED') teamStats[name].pending++;
+        });
+
+        // Subtask assignees
+        t.subtasks.forEach(st => {
+          st.assignees.forEach(name => {
+            if (!teamStats[name]) teamStats[name] = { name, pending: 0, late: 0 };
+            if (st.status === 'LATE') teamStats[name].late++;
+            else if (st.status !== 'COMPLETED' && st.status !== 'CANCELED') teamStats[name].pending++;
+          });
+        });
+      });
+    });
+
+    const workload = Object.values(teamStats).sort((a, b) => (b.pending + b.late) - (a.pending + a.late));
+
+    return { total, delivered, inProgress, late, activeByDept, deliveredByDept, lateByDept, workload };
+  }, [projects]);
+
   return (
     <div className="flex-1 w-full bg-slate-50 p-6 overflow-y-auto font-['Montserrat']">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -79,12 +144,12 @@ export const Dashboard = () => {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Painel Executivo</h1>
-            <p className="text-slate-500 text-sm">Controle de Projetos Adarco - Visão Geral</p>
+            <p className="text-slate-500 text-sm">Controle de Projetos Adarco - Dados Reais do Gantt</p>
           </div>
           <div className="flex gap-3">
             <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 shadow-sm">
               <TrendingUp size={14} className="text-emerald-500" />
-              <span>Eficiência Operacional: +12%</span>
+              <span>Eficiência: {metrics.total > 0 ? Math.round((metrics.delivered / metrics.total) * 100) : 0}% Global</span>
             </div>
           </div>
         </div>
@@ -98,7 +163,7 @@ export const Dashboard = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total de Projetos</p>
-              <h3 className="text-2xl font-bold text-slate-900">{kpiData.total}</h3>
+              <h3 className="text-2xl font-bold text-slate-900">{metrics.total}</h3>
             </div>
           </div>
 
@@ -109,7 +174,7 @@ export const Dashboard = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider mb-1">Entregues</p>
-              <h3 className="text-2xl font-bold text-emerald-900">{kpiData.delivered}</h3>
+              <h3 className="text-2xl font-bold text-emerald-900">{metrics.delivered}</h3>
             </div>
           </div>
 
@@ -120,7 +185,7 @@ export const Dashboard = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Em Progresso</p>
-              <h3 className="text-2xl font-bold text-slate-900">{kpiData.inProgress}</h3>
+              <h3 className="text-2xl font-bold text-slate-900">{metrics.inProgress}</h3>
             </div>
           </div>
 
@@ -131,7 +196,7 @@ export const Dashboard = () => {
             </div>
             <div>
               <p className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-1">Atrasados</p>
-              <h3 className="text-2xl font-bold text-red-900">{kpiData.late}</h3>
+              <h3 className="text-2xl font-bold text-red-900">{metrics.late}</h3>
             </div>
           </div>
         </div>
@@ -147,7 +212,7 @@ export const Dashboard = () => {
              </h4>
              <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={departmentActiveData}>
+                  <BarChart data={metrics.activeByDept}>
                     <defs>
                       <linearGradient id="barGradientGreen" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#a7f3d0" stopOpacity={0.6} />
@@ -168,6 +233,7 @@ export const Dashboard = () => {
                       axisLine={false} 
                       tickLine={false} 
                       tick={{ fontSize: 10, fill: '#64748b' }}
+                      allowDecimals={false}
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
                     <Bar 
@@ -191,7 +257,7 @@ export const Dashboard = () => {
              </h4>
              <div className="h-[250px] w-full text-xs">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={departmentDeliveredData}>
+                  <BarChart data={metrics.deliveredByDept}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis 
                       dataKey="name" 
@@ -203,6 +269,7 @@ export const Dashboard = () => {
                       axisLine={false} 
                       tickLine={false} 
                       tick={{ fontSize: 10, fill: '#64748b' }}
+                      allowDecimals={false}
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: '#f8fafc' }} />
                     <Bar 
@@ -226,7 +293,7 @@ export const Dashboard = () => {
              </h4>
              <div className="h-[250px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={departmentLateData}>
+                  <BarChart data={metrics.lateByDept}>
                     <defs>
                       <linearGradient id="barGradientRed" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#fecaca" stopOpacity={0.5} />
@@ -247,6 +314,7 @@ export const Dashboard = () => {
                       axisLine={false} 
                       tickLine={false} 
                       tick={{ fontSize: 10, fill: '#64748b' }}
+                      allowDecimals={false}
                     />
                     <Tooltip content={<CustomTooltip />} cursor={{ fill: '#fff1f2' }} />
                     <Bar 
@@ -283,7 +351,7 @@ export const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {teamWorkload.map((member, i) => (
+                {metrics.workload.map((member, i) => (
                   <tr key={i} className="hover:bg-slate-50/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -318,6 +386,13 @@ export const Dashboard = () => {
                     </td>
                   </tr>
                 ))}
+                {metrics.workload.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-12 text-center text-slate-400 text-sm italic">
+                      Nenhum dado de equipe encontrado nos projetos atuais.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

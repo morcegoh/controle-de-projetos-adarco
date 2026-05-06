@@ -989,7 +989,7 @@ function App({ user }: { user: User }) {
       {/* Main Content */}
       <View style={{flex: 1}}>
         {activeTab === 'DASHBOARD' ? (
-          <Dashboard />
+          <Dashboard projects={projects} />
         ) : activeTab === 'ADMIN' ? (
           <AdminScreen />
         ) : activeTab === 'PROFILE' ? (
