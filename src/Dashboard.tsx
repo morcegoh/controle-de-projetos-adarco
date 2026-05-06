@@ -75,12 +75,20 @@ interface DashboardProps {
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white dark:bg-slate-800 p-3 border border-slate-200 dark:border-slate-700 shadow-xl rounded-lg font-sans">
-        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-1">{label}</p>
-        <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: payload[0].color || payload[0].fill }}></span>
-          Quantidade: <span className="font-bold">{payload[0].value}</span>
+      <div className="bg-white dark:bg-slate-800 p-4 border border-slate-200 dark:border-slate-700 shadow-2xl rounded-2xl font-sans max-w-[300px]">
+        <p className="text-sm font-black text-slate-800 dark:text-slate-100 mb-2 uppercase tracking-wider border-b border-slate-100 dark:border-slate-700 pb-2">{label}</p>
+        <p className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-2 mb-3">
+          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: payload[0].color || payload[0].fill }}></span>
+          Total: <span className="font-black text-emerald-500">{payload[0].value}</span>
         </p>
+        {payload[0].payload.projects && (
+          <div className="space-y-1">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Impactados:</p>
+            <p className="text-[11px] font-bold text-slate-500 dark:text-slate-300 leading-relaxed italic">
+              {payload[0].payload.projects}
+            </p>
+          </div>
+        )}
       </div>
     );
   }
@@ -112,33 +120,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
   // Memoized Calculations
   const metrics = useMemo(() => {
     const total = filteredProjects.length;
-    const delivered = filteredProjects.filter(p => p.status !== 'CANCELED' && (p.status === 'COMPLETED' || Math.round(p.progress) === 100)).length;
-    const canceled = filteredProjects.filter(p => p.status === 'CANCELED').length;
-    const late = filteredProjects.filter(p => p.status === 'LATE' && Math.round(p.progress) < 100).length;
-    // Projects that are not completed, late or canceled are "in progress"
+    const delivered = filteredProjects.filter(p => 
+      (p.status === 'COMPLETED' || p.status === 'CONCLUÍDO' || Math.round(p.progress) === 100) &&
+      p.status !== 'CANCELED' && 
+      p.status !== 'CANCELADO'
+    ).length;
+    const canceled = filteredProjects.filter(p => p.status === 'CANCELED' || p.status === 'CANCELADO').length;
+    const late = filteredProjects.filter(p => 
+      (p.status === 'LATE' || p.status === 'EM ATRASO') && 
+      Math.round(p.progress) < 100
+    ).length;
+    
     const inProgress = filteredProjects.filter(p => 
       p.status !== 'COMPLETED' && 
-      p.status !== 'LATE' && 
+      p.status !== 'CONCLUÍDO' && 
       p.status !== 'CANCELED' && 
+      p.status !== 'CANCELADO' && 
       Math.round(p.progress) < 100
     ).length;
 
-    const departments = Array.from(new Set(filteredProjects.map(p => p.department || 'Sem Depto')));
+    const departments = Array.from(new Set(filteredProjects.map(p => (p.department || 'Sem Depto').trim())));
     
-    const activeByDept = departments.map(dept => ({
-      name: dept,
-      value: filteredProjects.filter(p => p.department === dept && p.status !== 'COMPLETED' && p.status !== 'CANCELED' && Math.round(p.progress) < 100).length
-    })).sort((a, b) => b.value - a.value);
+    const activeByDept = departments.map(dept => {
+      const deptProjects = filteredProjects.filter(p => 
+        (p.department || 'Sem Depto').trim() === dept && 
+        p.status !== 'COMPLETED' && 
+        p.status !== 'CONCLUÍDO' && 
+        p.status !== 'CANCELED' && 
+        p.status !== 'CANCELADO' && 
+        Math.round(p.progress) < 100
+      );
+      return {
+        name: dept,
+        value: deptProjects.length,
+        projects: deptProjects.map(p => p.title).join(', ')
+      };
+    }).sort((a, b) => b.value - a.value);
 
-    const deliveredByDept = departments.map(dept => ({
-      name: dept,
-      value: filteredProjects.filter(p => p.department === dept && p.status !== 'CANCELED' && (p.status === 'COMPLETED' || Math.round(p.progress) === 100)).length
-    })).sort((a, b) => b.value - a.value);
+    const deliveredByDept = departments.map(dept => {
+      const deptProjects = filteredProjects.filter(p => 
+        (p.department || 'Sem Depto').trim() === dept && 
+        (p.status === 'COMPLETED' || p.status === 'CONCLUÍDO' || Math.round(p.progress) === 100) &&
+        p.status !== 'CANCELED' &&
+        p.status !== 'CANCELADO'
+      );
+      return {
+        name: dept,
+        value: deptProjects.length,
+        projects: deptProjects.map(p => p.title).join(', ')
+      };
+    }).sort((a, b) => b.value - a.value);
 
-    const lateByDept = departments.map(dept => ({
-      name: dept,
-      value: filteredProjects.filter(p => p.department === dept && p.status === 'LATE').length
-    })).sort((a, b) => b.value - a.value);
+    const lateByDept = departments.map(dept => {
+      const deptProjects = filteredProjects.filter(p => (p.department || 'Sem Depto').trim() === dept && p.status === 'LATE');
+      return {
+        name: dept,
+        value: deptProjects.length,
+        projects: deptProjects.map(p => p.title).join(', ')
+      };
+    }).sort((a, b) => b.value - a.value);
 
     // Team Workload
     const teamStats: Record<string, { name: string, pending: number, late: number }> = {};
@@ -270,7 +310,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
           <div 
             onClick={() => setModalData({ 
               title: "Projetos Entregues", 
-              projects: filteredProjects.filter(p => p.status !== 'CANCELED' && (p.status === 'COMPLETED' || Math.round(p.progress) === 100)) 
+              projects: filteredProjects.filter(p => 
+                (p.status === 'COMPLETED' || p.status === 'CONCLUÍDO' || Math.round(p.progress) === 100) &&
+                p.status !== 'CANCELED' &&
+                p.status !== 'CANCELADO'
+              ) 
             })}
             className={`group p-6 rounded-[2rem] border backdrop-blur-xl shadow-2xl flex flex-col justify-between transition-all duration-500 hover:scale-[1.05] hover:shadow-emerald-500/20 cursor-pointer ${
               isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50/80 border-emerald-200/50'
@@ -291,8 +335,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
               title: "Projetos em Execução", 
               projects: filteredProjects.filter(p => 
                 p.status !== 'COMPLETED' && 
+                p.status !== 'CONCLUÍDO' &&
                 p.status !== 'LATE' && 
+                p.status !== 'EM ATRASO' &&
                 p.status !== 'CANCELED' && 
+                p.status !== 'CANCELADO' &&
                 Math.round(p.progress) < 100
               ) 
             })}
@@ -330,7 +377,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
           <div 
             onClick={() => setModalData({ 
               title: "Projetos Cancelados", 
-              projects: filteredProjects.filter(p => p.status === 'CANCECASE' || p.status === 'CANCELED') 
+              projects: filteredProjects.filter(p => 
+                p.status === 'CANCELED' || p.status === 'CANCELADO'
+              ) 
             })}
             className={`group p-6 rounded-[2rem] border backdrop-blur-xl shadow-2xl flex flex-col justify-between transition-all duration-500 hover:scale-[1.05] cursor-pointer hover:shadow-amber-500/10 ${isDark ? 'bg-slate-900/40 border-slate-800' : 'bg-white/70 border-white/40'}`}
           >
