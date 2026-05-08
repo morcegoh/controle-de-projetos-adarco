@@ -98,6 +98,8 @@ type Project = {
   endDate?: string;
   status: string;
   objective?: string;
+  updates?: string;
+  history?: any[];
   tasks: Task[];
 };
 
@@ -280,6 +282,7 @@ function App({ user }: { user: User }) {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
 
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [infoProject, setInfoProject] = useState<Project | null>(null);
 
   useEffect(() => {
     fetchProjects();
@@ -342,6 +345,53 @@ function App({ user }: { user: User }) {
       const formattedProjects = (projData || []).map(p => {
         const projectTasks = (taskData || []).filter(t => t.project_id === p.id);
         
+        const parseHistory = (updatesStr: string, sourceName?: string) => {
+          if (!updatesStr) return [];
+          return updatesStr.split('\n').filter(Boolean).map((update, idx) => {
+            const dateMatch = update.match(/^\[(.*?)\]/);
+            const dateStr = dateMatch ? dateMatch[1] : '';
+            const content = dateMatch ? update.replace(dateMatch[0], '').trim() : update;
+            
+            // Procura o padrão "Nome (email): Mensagem" ou apenas "Nome: Mensagem"
+            const userMatch = content.match(/^(.*?): (.*)/);
+            let user = 'Usuário';
+            let message = content;
+
+            if (userMatch) {
+              user = userMatch[1];
+              message = userMatch[2];
+            }
+
+            // Tenta extrair timestamp para ordenação
+            let timestamp = 0;
+            if (dateStr) {
+              try {
+                // Formato esperado: "dd/MM/yy HH:mm"
+                const parts = dateStr.split(' ');
+                const dateParts = parts[0].split('/');
+                const timeParts = parts[1].split(':');
+                const d = new Date(
+                  2000 + parseInt(dateParts[2]), 
+                  parseInt(dateParts[1]) - 1, 
+                  parseInt(dateParts[0]), 
+                  parseInt(timeParts[0]), 
+                  parseInt(timeParts[1])
+                );
+                timestamp = d.getTime();
+              } catch (e) { timestamp = 0; }
+            }
+
+            return {
+              id: `${sourceName || 'P'}-${idx}-${timestamp}`,
+              date: dateStr,
+              timestamp,
+              user,
+              content: message,
+              source: sourceName
+            };
+          });
+        };
+
         const tasksWithSubtasks = projectTasks.map(t => {
           const taskSubtasks = (subtaskData || []).filter(st => st.task_id === t.id);
           const totalSubProgress = taskSubtasks.reduce((sum, st) => sum + (st.progress || 0), 0);
@@ -356,8 +406,15 @@ function App({ user }: { user: User }) {
             }
           }
 
-          const isLate = computedProgress < 100 && t.status !== 'COMPLETED' && t.status !== 'CANCELED' && t.forecast_date && today > startOfDay(parseISO(t.forecast_date));
-          const finalStatus = isLate ? 'LATE' : t.status;
+        const isLate = computedProgress < 100 && 
+          t.status !== 'COMPLETED' && 
+          t.status !== 'CONCLUÍDO' && 
+          t.status !== 'CANCELED' && 
+          t.status !== 'CANCELADO' && 
+          t.forecast_date && today > startOfDay(parseISO(t.forecast_date));
+        const finalStatus = isLate ? 'LATE' : t.status;
+
+          const taskHistory = parseHistory(t.updates || '');
 
           return {
             id: t.id,
@@ -371,6 +428,7 @@ function App({ user }: { user: User }) {
             status: finalStatus,
             riskLevel: t.risk_level,
             updates: t.updates,
+            history: taskHistory,
             objective: t.objective,
             subtasks: taskSubtasks.map(st => {
               const isSubtaskLate = (st.progress || 0) < 100 && st.status !== 'COMPLETED' && st.status !== 'CANCELED' && st.forecast_date && today > startOfDay(parseISO(st.forecast_date));
@@ -388,11 +446,22 @@ function App({ user }: { user: User }) {
                 status: finalSubStatus,
                 riskLevel: st.risk_level,
                 updates: st.updates,
+                history: parseHistory(st.updates || ''),
                 objective: st.objective,
               };
             })
           };
         });
+
+        // Consolidate Project History
+        let consolidatedHistory = parseHistory(p.updates || '');
+        tasksWithSubtasks.forEach(t => {
+          consolidatedHistory = [...consolidatedHistory, ...parseHistory(t.updates || '', t.title)];
+          t.subtasks.forEach(st => {
+            consolidatedHistory = [...consolidatedHistory, ...parseHistory(st.updates || '', `${t.title} > ${st.title}`)];
+          });
+        });
+        consolidatedHistory.sort((a, b) => b.timestamp - a.timestamp);
 
         const totalProgress = tasksWithSubtasks.reduce((sum, t) => sum + t.progress, 0);
         const avgProgress = tasksWithSubtasks.length > 0 ? Math.round(totalProgress / tasksWithSubtasks.length) : (p.progress || 0);
@@ -406,7 +475,12 @@ function App({ user }: { user: User }) {
           }
         }
 
-        const isProjectLate = avgProgress < 100 && p.status !== 'COMPLETED' && p.status !== 'CANCELED' && p.forecast_date && today > startOfDay(parseISO(p.forecast_date));
+        const isProjectLate = avgProgress < 100 && 
+          p.status !== 'COMPLETED' && 
+          p.status !== 'CONCLUÍDO' && 
+          p.status !== 'CANCELED' && 
+          p.status !== 'CANCELADO' && 
+          p.forecast_date && today > startOfDay(parseISO(p.forecast_date));
         const finalProjectStatus = isProjectLate ? 'LATE' : p.status;
 
         return {
@@ -420,6 +494,7 @@ function App({ user }: { user: User }) {
           endDate: (avgProgress === 100 || p.status === 'COMPLETED' || p.status === 'CANCELED') ? (p.end_date || computedProjectEndDate) : undefined,
           status: finalProjectStatus,
           objective: p.objective,
+          history: consolidatedHistory,
           tasks: tasksWithSubtasks
         };
       });
@@ -443,8 +518,16 @@ function App({ user }: { user: User }) {
     handleTabChange('BOARD');
   };
 
-  const handleSaveProject = async (projectData: Partial<Project>) => {
+  const handleSaveProject = async (projectData: any) => {
     try {
+      let finalUpdates = projectData.updates || '';
+      if (projectData.newHistoryEntry) {
+        const now = new Date();
+        const timestamp = format(now, 'dd/MM/yy HH:mm');
+        const newEntry = `[${timestamp}] ${projectData.newHistoryEntry.user}: ${projectData.newHistoryEntry.content}`;
+        finalUpdates = finalUpdates ? `${finalUpdates}\n${newEntry}` : newEntry;
+      }
+
       const payload = {
         title: projectData.title,
         department: projectData.department,
@@ -453,7 +536,7 @@ function App({ user }: { user: User }) {
         forecast_date: projectData.forecastDate,
         end_date: (projectData.progress === 100 || projectData.status === 'CANCELED') ? (projectData.endDate || new Date().toISOString().split('T')[0]) : null,
         status: projectData.status,
-        // objective: projectData.objective, // Removido temporariamente pois a coluna não existe no Supabase
+        objective: projectData.objective,
         user_id: user.id
       };
       
@@ -1003,7 +1086,7 @@ function App({ user }: { user: User }) {
       {/* Main Content */}
       <View style={{flex: 1}}>
         {activeTab === 'DASHBOARD' ? (
-          <Dashboard projects={projects} />
+          <Dashboard projects={projects} onInfoProject={setInfoProject} />
         ) : activeTab === 'ADMIN' ? (
           <AdminScreen />
         ) : activeTab === 'PROFILE' ? (
@@ -1036,6 +1119,7 @@ function App({ user }: { user: User }) {
             onUpdateSubtaskProgress={handleUpdateSubtaskProgress}
             onEditRequest={setEditingItem}
             onTaskPress={handleTaskClickGantt}
+            onInfoProject={setInfoProject}
           />
         ) : (
           <BoardView 
@@ -1051,7 +1135,11 @@ function App({ user }: { user: User }) {
         <EditorModal 
           item={editingItem} 
           projects={projects}
-          userEmail={user?.email}
+      userDisplayName={
+        user?.user_metadata?.full_name 
+          ? `${user.user_metadata.full_name} (${user.email})` 
+          : (user?.email || 'Usuário')
+      }
           onClose={() => setEditingItem(null)} 
           onSaveProject={handleSaveProject}
           onSaveTask={handleSaveTask}
@@ -1061,6 +1149,13 @@ function App({ user }: { user: User }) {
           onDeleteSubtask={handleDeleteSubtask}
           onConvertTaskToSubtask={handleConvertTaskToSubtask}
           onConvertSubtaskToTask={handleConvertSubtaskToTask}
+        />
+      )}
+
+      {infoProject && (
+        <ProjectInfoModal 
+          project={infoProject} 
+          onClose={() => setInfoProject(null)} 
         />
       )}
     </View>
@@ -1088,11 +1183,13 @@ const webInputDOMStyle = {
   boxSizing: 'border-box' as const,
 };
 
-const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSaveTask, onSaveSubtask, onDeleteProject, onDeleteTask, onDeleteSubtask, onConvertTaskToSubtask, onConvertSubtaskToTask }: any) => {
+const EditorModal = ({ item, projects, userDisplayName, onClose, onSaveProject, onSaveTask, onSaveSubtask, onDeleteProject, onDeleteTask, onDeleteSubtask, onConvertTaskToSubtask, onConvertSubtaskToTask }: any) => {
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isMobile = windowWidth < 768;
   const isSmallMobile = windowWidth < 480;
-  const isMasterUser = userEmail === 'heder.santos@adarco.com.br';
+  
+  // Verificação de usuário master
+  const isMasterUser = userDisplayName.includes('heder.santos@adarco.com.br');
   const isProject = item.type === 'project';
   const isTask = item.type === 'task';
   const isSubtask = item.type === 'subtask';
@@ -1111,7 +1208,7 @@ const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSave
   const [updates, setUpdates] = useState(data.updates || '');
   const [objective, setObjective] = useState(data.objective || '');
   const [newUpdateContent, setNewUpdateContent] = useState('');
-  const [newUpdateUser, setNewUpdateUser] = useState(userEmail || 'Usuário');
+  const [newUpdateUser, setNewUpdateUser] = useState(userDisplayName || 'Usuário');
   const [selectedProjectId, setSelectedProjectId] = useState(item.parentProjectId || (projects?.length > 0 ? projects[0].id : ''));
   const [selectedTaskId, setSelectedTaskId] = useState(item.parentTaskId || '');
   const [selectedConvertParentId, setSelectedConvertParentId] = useState('');
@@ -1122,6 +1219,7 @@ const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSave
 
   const handleSave = () => {
     setErrorMessage('');
+    const newHistoryEntry = newUpdateContent ? { user: newUpdateUser, content: newUpdateContent } : undefined;
     
     if (isProject) {
       if (!title.trim()) {
@@ -1161,7 +1259,7 @@ const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSave
         setErrorMessage('O objetivo do projeto é obrigatório.');
         return;
       }
-      onSaveProject({ id: data.id, title, department, owner, startDate, forecastDate, endDate, status, progress, objective });
+      onSaveProject({ id: data.id, title, department, owner, startDate, forecastDate, endDate, status, progress, objective, updates, newHistoryEntry });
     } else {
       const assignees = assigneesStr.split(',').map((s: string) => s.trim()).filter((s: string) => s);
       
@@ -1184,8 +1282,6 @@ const EditorModal = ({ item, projects, userEmail, onClose, onSaveProject, onSave
         setErrorMessage(`O objetivo da ${isSubtask ? 'subtarefa' : 'tarefa'} deve ser descrito.`);
         return;
       }
-
-      const newHistoryEntry = newUpdateContent ? { user: newUpdateUser, content: newUpdateContent } : undefined;
       
       if (isSubtask) {
         onSaveSubtask(selectedTaskId || data.taskId, { 
@@ -1457,12 +1553,19 @@ Por favor, em caso de dúvidas fale comigo.`);
 
               {data.history && data.history.length > 0 && (
                  <View style={{marginTop: 10, padding: 12, backgroundColor: 'rgba(0, 91, 46, 0.05)', borderRadius: 8, marginBottom: 20}}>
-                   <Text style={[styles.label, { marginBottom: 12 }]}>Histórico de Atualizações</Text>
-                   {[...data.history].reverse().map((h: any) => (
+                   <Text style={[styles.label, { marginBottom: 12 }]}>Histórico de Atualizações {isProject ? '(Consolidado)' : ''}</Text>
+                   {[...data.history].map((h: any) => (
                      <View key={h.id} style={{marginBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(0, 42, 21, 0.1)', paddingBottom: 8}}>
                        <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4}}>
-                         <Text style={{color: 'var(--text-main)', fontWeight: 'bold', fontSize: 12}}>{h.user}</Text>
-                         <Text style={{color: 'var(--text-secondary)', fontSize: 10}}>{new Date(h.date).toLocaleString('pt-BR')}</Text>
+                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
+                           <Text style={{color: 'var(--text-main)', fontWeight: 'bold', fontSize: 12}}>{h.user}</Text>
+                           {h.source && (
+                             <View style={{backgroundColor: 'var(--primary-light)', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4}}>
+                               <Text style={{fontSize: 9, color: 'var(--primary)', fontWeight: '700'}}>{h.source}</Text>
+                             </View>
+                           )}
+                         </View>
+                         <Text style={{color: 'var(--text-secondary)', fontSize: 10}}>{h.date}</Text>
                        </View>
                        <Text style={{color: 'var(--text-secondary)', fontSize: 12}}>{h.content}</Text>
                      </View>
@@ -1675,7 +1778,7 @@ const GanttBar = ({ progress, status }: { progress: number; status: 'em_dia' | '
 // -------------------------------------------------------------
 // GANTT VIEW COMPONENT
 // -------------------------------------------------------------
-const GanttView = ({ projects, timelineStart, expandedProjects, setExpandedProjects, expandedTasks, setExpandedTasks, onUpdateProgress, onUpdateSubtaskProgress, onEditRequest, onTaskPress }: { projects: Project[], timelineStart: Date, expandedProjects: Set<string>, setExpandedProjects: any, expandedTasks: Set<string>, setExpandedTasks: any, onUpdateProgress: (id: string, p: number) => void, onUpdateSubtaskProgress: (id: string, p: number) => void, onEditRequest: any, onTaskPress: (id: string) => void }) => {
+const GanttView = ({ projects, timelineStart, expandedProjects, setExpandedProjects, expandedTasks, setExpandedTasks, onUpdateProgress, onUpdateSubtaskProgress, onEditRequest, onTaskPress, onInfoProject }: { projects: Project[], timelineStart: Date, expandedProjects: Set<string>, setExpandedProjects: any, expandedTasks: Set<string>, setExpandedTasks: any, onUpdateProgress: (id: string, p: number) => void, onUpdateSubtaskProgress: (id: string, p: number) => void, onEditRequest: any, onTaskPress: (id: string) => void, onInfoProject: (p: Project) => void }) => {
   const { width: windowWidth } = useWindowDimensions();
   const isMobile = windowWidth < 768;
 
@@ -1835,10 +1938,23 @@ const GanttView = ({ projects, timelineStart, expandedProjects, setExpandedProje
                     <TouchableOpacity style={{ flex: 1, justifyContent: 'center' }} onPress={() => onEditRequest({ type: 'project', isNew: false, projectData: p })} title={p.title}>
                       <Text style={[styles.cellText, styles.projectTitleText]} title={p.title}>{p.title}</Text>
                       {(p.department || p.owner) && (
-                        <Text style={{color: 'var(--text-muted)', fontSize: 11, marginTop: 1}} title={[p.department, p.owner].filter(Boolean).join(' • ')}>
+                        <Text style={{color: 'var(--text-muted)', fontSize: 11, marginTop: 1, flexWrap: 'wrap'}} title={[p.department, p.owner].filter(Boolean).join(' • ')}>
                           {[p.department, p.owner].filter(Boolean).join(' • ')}
                         </Text>
                       )}
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      onPress={() => onInfoProject(p)}
+                      style={{ 
+                        padding: 6, 
+                        backgroundColor: 'var(--bg-app)', 
+                        borderRadius: 8, 
+                        borderWidth: 1, 
+                        borderColor: 'var(--primary-light)',
+                        marginRight: 8
+                      }}
+                    >
+                      <Info size={14} color="var(--primary)" />
                     </TouchableOpacity>
                   </View>
                   <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center' }}>
@@ -2054,6 +2170,96 @@ const GanttView = ({ projects, timelineStart, expandedProjects, setExpandedProje
 };
 
 // -------------------------------------------------------------
+// PROJECT INFO MODAL COMPONENT
+// -------------------------------------------------------------
+const ProjectInfoModal = ({ project, onClose }: { project: Project, onClose: () => void }) => {
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const isMobile = windowWidth < 768;
+
+  if (!project) return null;
+
+  const history = project.history || [];
+
+  return (
+    <View style={styles.modalOverlay}>
+      <View style={[styles.modalContent, { width: isMobile ? '95%' : 700, padding: 0, borderRadius: 24, overflow: 'hidden', backgroundColor: 'var(--bg-card)' }]}>
+        <View style={{ padding: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'var(--border)', backgroundColor: 'var(--bg-card)', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: 'var(--text-main)' }}>{project.title}</Text>
+            <Text style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Informações e Histórico Consolidado</Text>
+          </View>
+          <TouchableOpacity onPress={onClose} style={{ padding: 8 }}>
+            <X size={24} color="var(--text-muted)" />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView style={{ padding: 24, maxHeight: windowHeight * 0.7 }}>
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Objetivo Macro</Text>
+            <Text style={{ fontSize: 14, color: 'var(--text-main)', lineHeight: 22 }}>{project.objective || 'Nenhum objetivo descrito.'}</Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 24, marginBottom: 24 }}>
+             <View style={{ minWidth: 150 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Status</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                   <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: project.status === 'COMPLETED' ? 'var(--primary)' : project.status === 'LATE' ? 'var(--danger)' : '#0BFD71' }} />
+                   <Text style={{ fontSize: 13, fontWeight: '600', color: 'var(--text-main)' }}>{project.status} ({project.progress}%)</Text>
+                </View>
+             </View>
+             <View style={{ minWidth: 150 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Departamento</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: 'var(--text-main)' }}>{project.department}</Text>
+             </View>
+             <View style={{ minWidth: 150 }}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 }}>Responsável</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: 'var(--text-main)' }}>{project.owner}</Text>
+             </View>
+          </View>
+
+          <View style={{ marginBottom: 24 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Histórico Consolidado (Projeto + Tarefas)</Text>
+            {history.length === 0 ? (
+              <View style={{ padding: 20, backgroundColor: 'var(--bg-app)', borderRadius: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>Nenhuma atualização registrada.</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 12 }}>
+                {history.map((h, idx) => (
+                  <View key={h.id} style={{ padding: 14, backgroundColor: 'var(--bg-app)', borderRadius: 12, borderLeftWidth: 3, borderLeftColor: h.source ? 'var(--border)' : 'var(--primary)' }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: 'var(--text-main)' }}>{h.user}</Text>
+                        {h.source && (
+                          <View style={{ backgroundColor: 'var(--primary-light)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 9, color: 'var(--primary)', fontWeight: '700' }}>{h.source}</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={{ fontSize: 10, color: 'var(--text-muted)' }}>{h.date}</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 18 }}>{h.content}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        <View style={{ padding: 20, backgroundColor: 'var(--bg-app)', borderTopWidth: 1, borderTopColor: 'var(--border)', alignItems: 'flex-end' }}>
+          <TouchableOpacity 
+            onPress={onClose}
+            style={{ backgroundColor: 'var(--primary)', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, shadowColor: 'var(--primary)', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Entendido</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// -------------------------------------------------------------
 // TASK INFO MODAL COMPONENT
 // -------------------------------------------------------------
 const TaskInfoModal = ({ task, onClose }: { task: any, onClose: () => void }) => {
@@ -2062,7 +2268,7 @@ const TaskInfoModal = ({ task, onClose }: { task: any, onClose: () => void }) =>
 
   if (!task) return null;
 
-  const updatesList = task.updates ? task.updates.split('\n').filter(Boolean).reverse() : [];
+  const history = task.history || [];
 
   return (
     <View style={styles.modalOverlay}>
@@ -2099,26 +2305,21 @@ const TaskInfoModal = ({ task, onClose }: { task: any, onClose: () => void }) =>
 
           <View style={{ marginBottom: 24 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 }}>Histórico de Atualizações</Text>
-            {updatesList.length === 0 ? (
+            {history.length === 0 ? (
               <View style={{ padding: 20, backgroundColor: 'var(--bg-app)', borderRadius: 12, alignItems: 'center' }}>
                 <Text style={{ fontSize: 13, color: 'var(--text-muted)', fontStyle: 'italic' }}>Nenhuma atualização registrada.</Text>
               </View>
             ) : (
               <View style={{ gap: 12 }}>
-                {updatesList.map((update, idx) => {
-                  const dateMatch = update.match(/^\[(.*?)\]/);
-                  const dateStr = dateMatch ? dateMatch[1] : '';
-                  const content = dateMatch ? update.replace(dateMatch[0], '').trim() : update;
-                  
-                  return (
-                    <View key={idx} style={{ padding: 14, backgroundColor: 'var(--bg-app)', borderRadius: 12, borderLeftWidth: 3, borderLeftColor: idx === 0 ? 'var(--primary)' : 'var(--border)' }}>
-                      {dateStr && (
-                        <Text style={{ fontSize: 10, fontWeight: '700', color: 'var(--primary)', marginBottom: 4 }}>{dateStr}</Text>
-                      )}
-                      <Text style={{ fontSize: 13, color: 'var(--text-main)', lineHeight: 18 }}>{content}</Text>
+                {[...history].reverse().map((h, idx) => (
+                  <View key={h.id} style={{ padding: 14, backgroundColor: 'var(--bg-app)', borderRadius: 12, borderLeftWidth: 3, borderLeftColor: idx === 0 ? 'var(--primary)' : 'var(--border)' }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: 'var(--text-main)' }}>{h.user}</Text>
+                      <Text style={{ fontSize: 10, color: 'var(--text-muted)' }}>{h.date}</Text>
                     </View>
-                  );
-                })}
+                    <Text style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 18 }}>{h.content}</Text>
+                  </View>
+                ))}
               </View>
             )}
           </View>

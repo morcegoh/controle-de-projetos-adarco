@@ -19,7 +19,8 @@ import {
   AlertCircle,
   TrendingUp,
   Filter,
-  X
+  X,
+  Info
 } from 'lucide-react';
 import { useTheme } from './theme';
 
@@ -64,11 +65,14 @@ type Project = {
   endDate?: string;
   status: string;
   objective?: string;
+  updates?: string;
+  history?: any[];
   tasks: Task[];
 };
 
 interface DashboardProps {
   projects: Project[];
+  onInfoProject?: (p: Project) => void;
 }
 
 // Custom Tooltip Component
@@ -95,7 +99,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject }) => {
   const { theme } = useTheme();
   const [selectedDept, setSelectedDept] = useState<string>('TODOS');
   const [modalData, setModalData] = useState<{ title: string; projects: Project[] } | null>(null);
@@ -120,11 +124,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
   // Memoized Calculations
   const metrics = useMemo(() => {
     const total = filteredProjects.length;
-    const delivered = filteredProjects.filter(p => 
-      (p.status === 'COMPLETED' || p.status === 'CONCLUÍDO' || Math.round(p.progress) === 100) &&
-      p.status !== 'CANCELED' && 
-      p.status !== 'CANCELADO'
-    ).length;
+    const delivered = filteredProjects.filter(p => {
+      const s = (p.status || '').toUpperCase();
+      const isDelivered = (s === 'COMPLETED' || s === 'CONCLUÍDO' || Math.round(p.progress) === 100);
+      const isCanceled = (s === 'CANCELED' || s === 'CANCELADO');
+      return isDelivered && !isCanceled;
+    }).length;
     const canceled = filteredProjects.filter(p => p.status === 'CANCELED' || p.status === 'CANCELADO').length;
     const late = filteredProjects.filter(p => 
       (p.status === 'LATE' || p.status === 'EM ATRASO') && 
@@ -158,12 +163,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
     }).sort((a, b) => b.value - a.value);
 
     const deliveredByDept = departments.map(dept => {
-      const deptProjects = filteredProjects.filter(p => 
-        (p.department || 'Sem Depto').trim() === dept && 
-        (p.status === 'COMPLETED' || p.status === 'CONCLUÍDO' || Math.round(p.progress) === 100) &&
-        p.status !== 'CANCELED' &&
-        p.status !== 'CANCELADO'
-      );
+      const deptProjects = filteredProjects.filter(p => {
+        const s = (p.status || '').toUpperCase();
+        const isDelivered = (s === 'COMPLETED' || s === 'CONCLUÍDO' || Math.round(p.progress) === 100);
+        const isCanceled = (s === 'CANCELED' || s === 'CANCELADO');
+        return (p.department || 'Sem Depto').trim() === dept && isDelivered && !isCanceled;
+      });
       return {
         name: dept,
         value: deptProjects.length,
@@ -310,11 +315,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
           <div 
             onClick={() => setModalData({ 
               title: "Projetos Entregues", 
-              projects: filteredProjects.filter(p => 
-                (p.status === 'COMPLETED' || p.status === 'CONCLUÍDO' || Math.round(p.progress) === 100) &&
-                p.status !== 'CANCELED' &&
-                p.status !== 'CANCELADO'
-              ) 
+              projects: filteredProjects.filter(p => {
+                const s = (p.status || '').toUpperCase();
+                const isDelivered = (s === 'COMPLETED' || s === 'CONCLUÍDO' || Math.round(p.progress) === 100);
+                const isCanceled = (s === 'CANCELED' || s === 'CANCELADO');
+                return isDelivered && !isCanceled;
+              }) 
             })}
             className={`group p-6 rounded-[2rem] border backdrop-blur-xl shadow-2xl flex flex-col justify-between transition-all duration-500 hover:scale-[1.05] hover:shadow-emerald-500/20 cursor-pointer ${
               isDark ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-emerald-50/80 border-emerald-200/50'
@@ -377,9 +383,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
           <div 
             onClick={() => setModalData({ 
               title: "Projetos Cancelados", 
-              projects: filteredProjects.filter(p => 
-                p.status === 'CANCELED' || p.status === 'CANCELADO'
-              ) 
+              projects: filteredProjects.filter(p => {
+                const s = (p.status || '').toUpperCase();
+                return s === 'CANCELED' || s === 'CANCELADO';
+              }) 
             })}
             className={`group p-6 rounded-[2rem] border backdrop-blur-xl shadow-2xl flex flex-col justify-between transition-all duration-500 hover:scale-[1.05] cursor-pointer hover:shadow-amber-500/10 ${isDark ? 'bg-slate-900/40 border-slate-800' : 'bg-white/70 border-white/40'}`}
           >
@@ -743,8 +750,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects }) => {
                            <span className={`text-[10px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-500'}`}>{project.owner}</span>
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1.5">
-                        <span className={`text-xs font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{project.progress}%</span>
+                      <div className="flex flex-col items-end gap-1.5 min-w-[100px]">
+                        <div className="flex items-center gap-2">
+                           <span className={`text-xs font-black ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>{project.progress}%</span>
+                           {onInfoProject && (
+                             <button
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 onInfoProject(project);
+                               }}
+                               className={`p-1.5 rounded-lg transition-all ${isDark ? 'bg-white/5 hover:bg-emerald-500/20 text-emerald-400' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-600'}`}
+                             >
+                               <Info size={14} />
+                             </button>
+                           )}
+                        </div>
                         <div className={`w-16 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
                           <div 
                             className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-700" 

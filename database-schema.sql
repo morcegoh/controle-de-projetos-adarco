@@ -61,6 +61,8 @@ CREATE TABLE public.projects (
   forecast_date DATE NOT NULL,
   end_date DATE,
   status TEXT DEFAULT 'NOT_STARTED',
+  updates TEXT,
+  objective TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
