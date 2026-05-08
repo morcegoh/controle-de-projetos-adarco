@@ -1255,8 +1255,13 @@ const EditorModal = ({ item, projects, userDisplayName, onClose, onSaveProject, 
         setErrorMessage('A previsão de término do projeto é obrigatória.');
         return;
       }
-      if (!objective.trim()) {
-        setErrorMessage('O objetivo do projeto é obrigatório.');
+      if (item.isNew && !objective.trim()) {
+        setErrorMessage('O objetivo do projeto é obrigatório para a criação.');
+        return;
+      }
+      
+      if (!item.isNew && !newUpdateContent.trim()) {
+        setErrorMessage('Para salvar as alterações, informe o que mudou no campo "Nova Atualização".');
         return;
       }
       onSaveProject({ id: data.id, title, department, owner, startDate, forecastDate, endDate, status, progress, objective, updates, newHistoryEntry });
@@ -1278,8 +1283,13 @@ const EditorModal = ({ item, projects, userDisplayName, onClose, onSaveProject, 
         return;
       }
       
-      if (!objective.trim()) {
+      if (item.isNew && !objective.trim()) {
         setErrorMessage(`O objetivo da ${isSubtask ? 'subtarefa' : 'tarefa'} deve ser descrito.`);
+        return;
+      }
+
+      if (!item.isNew && !newUpdateContent.trim()) {
+        setErrorMessage('Para salvar as alterações, informe o progresso no campo "Nova Atualização".');
         return;
       }
       
