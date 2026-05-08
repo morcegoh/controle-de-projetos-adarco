@@ -358,7 +358,7 @@ function App({ user }: { user: User }) {
             let message = content;
 
             if (userMatch) {
-              user = userMatch[1];
+              user = userMatch[1].replace(/\s*\(.*?\)\s*/g, '').trim();
               message = userMatch[2];
             }
 
@@ -1137,7 +1137,7 @@ function App({ user }: { user: User }) {
           projects={projects}
       userDisplayName={
         user?.user_metadata?.full_name 
-          ? `${user.user_metadata.full_name} (${user.email})` 
+          ? user.user_metadata.full_name 
           : (user?.email || 'Usuário')
       }
           onClose={() => setEditingItem(null)} 
