@@ -125,8 +125,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject })
   const metrics = useMemo(() => {
     const total = filteredProjects.length;
     const delivered = filteredProjects.filter(p => {
+      const isDelivered = Math.round(p.progress) === 100;
       const s = (p.status || '').toUpperCase();
-      const isDelivered = (s === 'COMPLETED' || s === 'CONCLUÍDO' || Math.round(p.progress) === 100);
       const isCanceled = (s === 'CANCELED' || s === 'CANCELADO');
       return isDelivered && !isCanceled;
     }).length;
@@ -164,8 +164,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject })
 
     const deliveredByDept = departments.map(dept => {
       const deptProjects = filteredProjects.filter(p => {
+        const isDelivered = Math.round(p.progress) === 100;
         const s = (p.status || '').toUpperCase();
-        const isDelivered = (s === 'COMPLETED' || s === 'CONCLUÍDO' || Math.round(p.progress) === 100);
         const isCanceled = (s === 'CANCELED' || s === 'CANCELADO');
         return (p.department || 'Sem Depto').trim() === dept && isDelivered && !isCanceled;
       });
@@ -316,8 +316,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject })
             onClick={() => setModalData({ 
               title: "Projetos Entregues", 
               projects: filteredProjects.filter(p => {
+                const isDelivered = Math.round(p.progress) === 100;
                 const s = (p.status || '').toUpperCase();
-                const isDelivered = (s === 'COMPLETED' || s === 'CONCLUÍDO' || Math.round(p.progress) === 100);
                 const isCanceled = (s === 'CANCELED' || s === 'CANCELADO');
                 return isDelivered && !isCanceled;
               }) 

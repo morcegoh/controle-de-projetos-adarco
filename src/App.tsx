@@ -412,7 +412,13 @@ function App({ user }: { user: User }) {
           t.status !== 'CANCELED' && 
           t.status !== 'CANCELADO' && 
           t.forecast_date && today > startOfDay(parseISO(t.forecast_date));
-        const finalStatus = isLate ? 'LATE' : t.status;
+        
+        let finalStatus = t.status;
+        if (isLate) {
+          finalStatus = 'LATE';
+        } else if (computedProgress < 100 && (t.status === 'COMPLETED' || t.status === 'CONCLUÍDO')) {
+          finalStatus = 'IN_PROGRESS';
+        }
 
           const taskHistory = parseHistory(t.updates || '');
 
@@ -432,7 +438,13 @@ function App({ user }: { user: User }) {
             objective: t.objective,
             subtasks: taskSubtasks.map(st => {
               const isSubtaskLate = (st.progress || 0) < 100 && st.status !== 'COMPLETED' && st.status !== 'CANCELED' && st.forecast_date && today > startOfDay(parseISO(st.forecast_date));
-              const finalSubStatus = isSubtaskLate ? 'LATE' : st.status;
+              
+              let finalSubStatus = st.status;
+              if (isSubtaskLate) {
+                finalSubStatus = 'LATE';
+              } else if ((st.progress || 0) < 100 && (st.status === 'COMPLETED' || st.status === 'CONCLUÍDO')) {
+                finalSubStatus = 'IN_PROGRESS';
+              }
               
               return {
                 id: st.id,
@@ -481,7 +493,13 @@ function App({ user }: { user: User }) {
           p.status !== 'CANCELED' && 
           p.status !== 'CANCELADO' && 
           p.forecast_date && today > startOfDay(parseISO(p.forecast_date));
-        const finalProjectStatus = isProjectLate ? 'LATE' : p.status;
+        
+        let finalProjectStatus = p.status;
+        if (isProjectLate) {
+          finalProjectStatus = 'LATE';
+        } else if (avgProgress < 100 && (p.status === 'COMPLETED' || p.status === 'CONCLUÍDO')) {
+          finalProjectStatus = 'IN_PROGRESS';
+        }
 
         return {
           id: p.id,
@@ -1227,18 +1245,8 @@ const EditorModal = ({ item, projects, userDisplayName, onClose, onSaveProject, 
         return;
       }
       
-      // Validação de Duplicidade
-      const isDuplicate = projects.some((p: any) => 
-        p.title.trim().toLowerCase() === title.trim().toLowerCase() && 
-        p.id !== data.id &&
-        p.status !== 'COMPLETED' && p.status !== 'CANCELED'
-      );
-
-      if (isDuplicate) {
-        setErrorMessage('Já existe um projeto ativo com este nome. Por favor, utilize um título diferente.');
-        return;
-      }
-
+      // Validação de Duplicidade removida conforme solicitação do usuário
+      
       if (!owner.trim()) {
         setErrorMessage('O responsável pelo projeto é obrigatório.');
         return;
