@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { ScrollView, View, Text, TouchableOpacity, StyleSheet, TextInput, useWindowDimensions } from 'react-native';
 import { supabase } from './supabase';
 import { User } from '@supabase/supabase-js';
-import { googleSignIn, getAccessToken, logoutGoogle } from './googleCalendar';
-import { Calendar } from 'lucide-react';
 
 export default function ProfileScreen({ goBack, user }: { goBack: () => void, user: User }) {
   const { width: windowWidth } = useWindowDimensions();
@@ -12,37 +10,7 @@ export default function ProfileScreen({ goBack, user }: { goBack: () => void, us
   const [role, setRole] = useState(user?.user_metadata?.role || '');
   const [phone, setPhone] = useState(user?.user_metadata?.phone || '');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [isGoogleLinked, setIsGoogleLinked] = useState(false);
   const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    checkGoogleLink();
-  }, []);
-
-  const checkGoogleLink = async () => {
-    const token = await getAccessToken();
-    setIsGoogleLinked(!!token);
-  };
-
-  const handleLinkGoogle = async () => {
-    setGoogleLoading(true);
-    try {
-      await googleSignIn();
-      setIsGoogleLinked(true);
-      setMessage('Google Agenda vinculado com sucesso!');
-    } catch (e: any) {
-      setMessage(`Erro ao vincular Google: ${e.message}`);
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
-
-  const handleUnlinkGoogle = async () => {
-    await logoutGoogle();
-    setIsGoogleLinked(false);
-    setMessage('Google Agenda desvinculado.');
-  };
 
   const handleSave = async () => {
     if (!user) return;
@@ -128,20 +96,6 @@ export default function ProfileScreen({ goBack, user }: { goBack: () => void, us
             placeholder="Seu telefone"
             keyboardType="phone-pad"
           />
-        </View>
-
-        <View style={styles.formGroup}>
-          <Text style={styles.label}>Integrações</Text>
-          <TouchableOpacity 
-            style={[styles.googleButton, isGoogleLinked && styles.googleButtonLinked]} 
-            onPress={isGoogleLinked ? handleUnlinkGoogle : handleLinkGoogle}
-            disabled={googleLoading}
-          >
-            <Calendar size={20} color={isGoogleLinked ? 'var(--success)' : 'var(--text-main)'} />
-            <Text style={[styles.googleButtonText, isGoogleLinked && { color: 'var(--success)' }]}>
-              {googleLoading ? 'Conectando...' : isGoogleLinked ? 'Google Agenda Ativado' : 'Vincular Google Agenda'}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {message ? <Text style={styles.messageText}>{message}</Text> : null}
@@ -265,25 +219,6 @@ const styles = StyleSheet.create({
   messageText: {
     color: 'var(--success)',
     marginBottom: 16,
-    fontWeight: '500',
-  },
-  googleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: 'var(--border)',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: 'var(--input-bg)',
-  },
-  googleButtonLinked: {
-    borderColor: 'var(--success)',
-    backgroundColor: 'rgba(34, 197, 94, 0.05)',
-  },
-  googleButtonText: {
-    fontSize: 16,
-    color: 'var(--text-main)',
     fontWeight: '500',
   }
 });
