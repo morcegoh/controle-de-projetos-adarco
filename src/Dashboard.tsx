@@ -103,6 +103,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject })
   const { theme } = useTheme();
   const [selectedDept, setSelectedDept] = useState<string>('TODOS');
   const [modalData, setModalData] = useState<{ title: string; projects: Project[] } | null>(null);
+  const [lateTasksModal, setLateTasksModal] = useState<{ memberName: string; tasks: any[] } | null>(null);
 
   const isDark = theme === 'dark';
   const chartTextColor = isDark ? '#94A3B8' : '#64748b';
@@ -186,7 +187,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject })
     }).sort((a, b) => b.value - a.value);
 
     // Team Workload
-    const teamStats: Record<string, { name: string, pending: number, late: number }> = {};
+    const teamStats: Record<string, { name: string, pending: number, late: number, lateTasks: any[] }> = {};
     
     filteredProjects.forEach(p => {
       if (p.status === 'COMPLETED' || p.status === 'CANCELED') return;
@@ -194,8 +195,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject })
       p.tasks.forEach(t => {
         if (t.status !== 'COMPLETED' && t.status !== 'CANCELED') {
           t.assignees.forEach(name => {
-            if (!teamStats[name]) teamStats[name] = { name, pending: 0, late: 0 };
-            if (t.status === 'LATE') teamStats[name].late++;
+            if (!teamStats[name]) teamStats[name] = { name, pending: 0, late: 0, lateTasks: [] };
+            if (t.status === 'LATE') {
+              teamStats[name].late++;
+              teamStats[name].lateTasks.push({ ...t, projectTitle: p.title, type: 'Tarefa' });
+            }
             teamStats[name].pending++;
           });
         }
@@ -203,8 +207,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject })
         t.subtasks.forEach(st => {
           if (st.status !== 'COMPLETED' && st.status !== 'CANCELED') {
             st.assignees.forEach(name => {
-              if (!teamStats[name]) teamStats[name] = { name, pending: 0, late: 0 };
-              if (st.status === 'LATE') teamStats[name].late++;
+              if (!teamStats[name]) teamStats[name] = { name, pending: 0, late: 0, lateTasks: [] };
+              if (st.status === 'LATE') {
+                teamStats[name].late++;
+                teamStats[name].lateTasks.push({ ...st, projectTitle: p.title, type: 'Subtarefa', parentTaskTitle: t.title });
+              }
               teamStats[name].pending++;
             });
           }
@@ -690,9 +697,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject })
                     </td>
                     <td className="px-8 py-5">
                       {member.late > 0 ? (
-                        <div className={`rounded-lg px-4 py-1.5 font-bold border text-[9px] tracking-widest inline-block ${isDark ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-red-50 text-red-700 border-red-100'}`}>
+                        <button 
+                          onClick={() => setLateTasksModal({ memberName: member.name, tasks: member.lateTasks })}
+                          className={`rounded-lg px-4 py-1.5 font-bold border text-[9px] tracking-widest inline-block transition-all hover:scale-105 active:scale-95 ${
+                            isDark ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-red-50 text-red-700 border-red-100'
+                          }`}
+                        >
                           {member.late} EM ATRASO
-                        </div>
+                        </button>
                       ) : (
                         <span className="text-[10px] font-bold text-slate-400 tracking-wider">OK</span>
                       )}
@@ -792,6 +804,85 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onInfoProject })
                 }`}
               >
                 Encerrar Visualização
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Late Tasks Modal */}
+      {lateTasksModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-300">
+          <div className={`rounded-[2.5rem] shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] border backdrop-blur-3xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300 ${isDark ? 'bg-slate-900/80 border-white/10' : 'bg-white/95 border-white/60'}`}>
+            <div className={`p-8 border-b flex items-center justify-between ${isDark ? 'border-white/5' : 'border-slate-100'}`}>
+              <div>
+                <h3 className={`text-xl font-black tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>Tarefas em Atraso</h3>
+                <p className={`text-[10px] uppercase font-black tracking-[0.2em] mt-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>{lateTasksModal.memberName} – {lateTasksModal.tasks.length} itens pendentes</p>
+              </div>
+              <button 
+                onClick={() => setLateTasksModal(null)}
+                className={`p-3 rounded-2xl transition-all active:scale-90 ${isDark ? 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white' : 'bg-slate-50 hover:bg-slate-100 text-slate-400 hover:text-slate-900'}`}
+              >
+                <X size={18} strokeWidth={3} />
+              </button>
+            </div>
+            
+            <div className="max-h-[60vh] overflow-y-auto p-6 space-y-4">
+              {lateTasksModal.tasks.map((task, idx) => (
+                <div 
+                  key={`${task.id}-${idx}`}
+                  className={`p-5 rounded-3xl border transition-all ${
+                    isDark ? 'bg-white/5 border-white/5 hover:bg-white/10' : 'bg-slate-50 border-slate-100 hover:bg-white hover:shadow-lg'
+                  }`}
+                >
+                  <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[9px] px-2 py-0.5 rounded-md font-black uppercase tracking-wider ${
+                          task.type === 'Tarefa' ? 'bg-blue-500/10 text-blue-500' : 'bg-purple-500/10 text-purple-500'
+                        }`}>
+                          {task.type}
+                        </span>
+                        <span className={`text-xs font-black ${isDark ? 'text-slate-100' : 'text-slate-800'}`}>{task.title}</span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <p className={`text-[11px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Projeto: <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>{task.projectTitle}</span>
+                        </p>
+                        {task.parentTaskTitle && (
+                          <p className={`text-[11px] font-bold ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+                            Tarefa Pai: <span className={isDark ? 'text-slate-200' : 'text-slate-700'}>{task.parentTaskTitle}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col items-end gap-2 text-right">
+                       <div className="flex items-center gap-2">
+                          <Clock size={12} className="text-red-500" />
+                          <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Atrasado</span>
+                       </div>
+                       <p className={`text-[10px] font-bold ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Previsto: {task.forecastDate}</p>
+                       <div className={`w-20 h-1.5 rounded-full overflow-hidden ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                          <div 
+                            className="h-full bg-gradient-to-r from-red-500 to-orange-500 rounded-full" 
+                            style={{ width: `${task.progress}%` }}
+                          />
+                        </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className={`p-6 flex justify-end ${isDark ? 'bg-slate-800/30' : 'bg-slate-50/50'}`}>
+              <button 
+                onClick={() => setLateTasksModal(null)}
+                className={`px-8 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg ${
+                  isDark ? 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-white/5' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                }`}
+              >
+                Fechar
               </button>
             </div>
           </div>
