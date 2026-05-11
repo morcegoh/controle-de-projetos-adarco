@@ -1216,7 +1216,23 @@ const EditorModal = ({ item, projects, userDisplayName, onClose, onSaveProject, 
   const [title, setTitle] = useState(data.title || '');
   const [department, setDepartment] = useState(data.department || '');
   const [owner, setOwner] = useState(data.owner || '');
-  const [startDate, setStartDate] = useState(data.startDate || new Date().toISOString().substring(0, 10));
+
+  // Determinar a data de início padrão (do projeto pai se for nova tarefa/subtarefa)
+  const getDefaultStartDate = () => {
+    if (data.startDate) return data.startDate;
+    if (isProject) return new Date().toISOString().substring(0, 10);
+    
+    let projId = item.parentProjectId;
+    if (isSubtask && item.parentTaskId) {
+      const parentTask = projects.flatMap((p: any) => p.tasks || []).find((t: any) => t.id === item.parentTaskId);
+      if (parentTask) projId = parentTask.projectId || parentTask.project_id;
+    }
+    
+    const proj = projects.find((p: any) => p.id === projId);
+    return proj?.startDate || proj?.start_date || new Date().toISOString().substring(0, 10);
+  };
+
+  const [startDate, setStartDate] = useState(getDefaultStartDate());
   const [forecastDate, setForecastDate] = useState(data.forecastDate || '');
   const [endDate, setEndDate] = useState(data.endDate || '');
   const [assigneesStr, setAssigneesStr] = useState(data.assignees ? data.assignees.join(', ') : '');
