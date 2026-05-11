@@ -2449,10 +2449,20 @@ const BoardView = ({ tasks, onEditRequest, highlightedTaskId }: { tasks: any[], 
         contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
       >
         {columns.map(col => {
-          const colTasks = tasks.filter(t => 
-            (t.status === col.id || (col.id === 'IN_PROGRESS' && t.status === 'IN_PROGRESS')) &&
-            t.title.toLowerCase().includes(searchQuery.toLowerCase())
-          );
+          const colTasks = tasks.filter(t => {
+            const matchesStatus = (t.status === col.id || (col.id === 'IN_PROGRESS' && t.status === 'IN_PROGRESS'));
+            if (!matchesStatus) return false;
+            
+            const query = searchQuery.toLowerCase();
+            const matchesTitle = t.title.toLowerCase().includes(query);
+            const matchesAssignee = t.assignees && t.assignees.some((a: string) => a.toLowerCase().includes(query));
+            const matchesSubtasks = t.subtasks && t.subtasks.some((st: any) => 
+              st.title.toLowerCase().includes(query) || 
+              (st.assignees && st.assignees.some((a: string) => a.toLowerCase().includes(query)))
+            );
+
+            return matchesTitle || matchesAssignee || matchesSubtasks;
+          });
           return (
             <View 
               key={col.id} 
