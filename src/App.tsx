@@ -12,6 +12,7 @@ import LoginScreen from './Login';
 import ProfileScreen from './Profile';
 import AdminScreen from './Admin';
 import Dashboard from './Dashboard';
+import { createGoogleCalendarEvent } from './googleCalendar';
 
 const safeFormatDate = (dateStr?: string, fmt: string = 'dd/MM/yy', fallback = '--/--') => {
   if (!dateStr) return fallback;
@@ -638,6 +639,18 @@ function App({ user }: { user: User }) {
       if (editingItem?.isNew) {
         const { error } = await supabase.from('tasks').insert([payload]);
         if (error) throw error;
+        
+        // Sincronizar com Google Agenda se for nova tarefa
+        try {
+          await createGoogleCalendarEvent({
+            title: payload.title,
+            startDate: payload.start_date,
+            forecastDate: payload.forecast_date,
+            objective: taskData.objective
+          });
+        } catch (calErr) {
+          console.warn('Erro ao sincronizar com Google Agenda:', calErr);
+        }
       } else {
         const { error } = await supabase.from('tasks').update(payload).eq('id', taskData.id);
         if (error) throw error;
@@ -695,6 +708,18 @@ function App({ user }: { user: User }) {
       if (editingItem?.isNew) {
         const { error } = await supabase.from('subtasks').insert([payload]);
         if (error) throw error;
+
+        // Sincronizar com Google Agenda se for nova subtarefa
+        try {
+          await createGoogleCalendarEvent({
+            title: payload.title,
+            startDate: payload.start_date,
+            forecastDate: payload.forecast_date,
+            objective: subtaskData.objective
+          });
+        } catch (calErr) {
+          console.warn('Erro ao sincronizar com Google Agenda:', calErr);
+        }
       } else {
         const { error } = await supabase.from('subtasks').update(payload).eq('id', subtaskData.id);
         if (error) throw error;
