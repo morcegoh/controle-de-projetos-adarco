@@ -110,4 +110,76 @@ app.post("/api/admin/users/:id/reset", async (req, res) => {
   }
 });
 
+// Forgot Password - Apenas para usuários administradores
+app.post("/api/auth/forgot-password", async (req, res) => {
+  if (!supabaseAdmin) {
+    return res.status(500).json({ error: "O servidor não foi configurado com SUPABASE_SERVICE_ROLE_KEY." });
+  }
+
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "E-mail é obrigatório." });
+  }
+
+  try {
+    // 1. Listar usuários cadastrados no Supabase Auth para verificar o e-mail informado
+    const { data, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+    if (listError) throw listError;
+
+    const usersList = (data?.users || []) as any[];
+    const user = usersList.find(u => u.email?.toLowerCase() === email.trim().toLowerCase());
+
+    if (!user) {
+      return res.status(404).json({ error: "Este e-mail não pertence a nenhum usuário cadastrado no sistema." });
+    }
+
+    // 2. Verificar se o usuário possui cargo ou e-mail de administrador
+    const userRole = (user.user_metadata?.role || '').toLowerCase();
+    const isAdmin = 
+      userRole.includes('admin') || 
+      userRole.includes('administrador') || 
+      user.email?.toLowerCase() === 'heder.santos@adarco.com.br';
+
+    if (!isAdmin) {
+      return res.status(403).json({ 
+        error: "Seu perfil não possui permissão para redefinir a própria senha diretamente. Por favor, procure um administrador do sistema." 
+      });
+    }
+
+    // 3. Usuário é administrador. Disparar o fluxo oficial de redefinição de senha do Supabase
+    const targetOrigin = req.headers.origin || "http://localhost:3000";
+    const redirectTo = `${targetOrigin}/?recovery=true`;
+
+    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: redirectTo
+    });
+
+    if (resetError) throw resetError;
+
+    // Gerar um link administrativo de contingência que é impresso no console do servidor
+    try {
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'recovery',
+        email: email.trim(),
+        options: { redirectTo }
+      });
+      if (!linkError && linkData?.properties?.action_link) {
+        console.log(`\n======================================`);
+        console.log(`[CONTINGÊNCIA ADMIN] Link de recuperação gerado para ${email}:`);
+        console.log(linkData.properties.action_link);
+        console.log(`======================================\n`);
+      }
+    } catch (e) {
+      // Falha silenciosa no link de contingência se houver algum erro de permissão interno
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Instruções de redefinição de senha enviadas com sucesso no seu e-mail cadastrado no Supabase!" 
+    });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 export default app;

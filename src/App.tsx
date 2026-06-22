@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent, TextInput, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, TouchableOpacity, NativeSyntheticEvent, NativeScrollEvent, TextInput, useWindowDimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { addDays, format, differenceInDays, parseISO, startOfDay, isValid, getISOWeek, getYear, setISOWeek, setYear, startOfISOWeek, setWeek, startOfWeek } from 'date-fns';
 
@@ -195,18 +195,104 @@ function ForcePasswordChange({ user, onComplete }: { user: User, onComplete: () 
   );
 }
 
+function ResetRecoveryPassword({ onComplete }: { onComplete: () => void }) {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const submitPasswordChange = async () => {
+    if (newPassword !== confirmPassword) {
+      setError('As senhas não coincidem');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('A nova senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const { error: updateError } = await supabase.auth.updateUser({ 
+        password: newPassword,
+        data: { needs_password_change: false }
+      });
+      if (updateError) throw updateError;
+      setSuccess(true);
+      setTimeout(() => {
+        onComplete();
+      }, 1500);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={{ flex: 1, backgroundColor: 'var(--bg-app)', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: 420, maxWidth: '90%', backgroundColor: 'var(--bg-card)', padding: 32, borderRadius: 16 }}>
+        <Text style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--text-main)', marginBottom: 12, textAlign: 'center' }}>Redefinir Senha</Text>
+        <Text style={{ fontSize: 14, color: 'var(--text-secondary)', textAlign: 'center', marginBottom: 24, lineHeight: 20 }}>
+          Defina uma nova senha segura para prosseguir para o sistema de Controle de Projetos.
+        </Text>
+        
+        {error ? <Text style={{ color: 'var(--danger)', backgroundColor: 'var(--danger-bg)', padding: 12, borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>{error}</Text> : null}
+        {success ? <Text style={{ color: 'var(--success)', backgroundColor: 'var(--success-bg)', padding: 12, borderRadius: 8, marginBottom: 16, textAlign: 'center' }}>Senha alterada com sucesso! Conectando...</Text> : null}
+
+        <Text style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8, fontWeight: '500' }}>Nova Senha</Text>
+        <TextInput 
+          style={{ borderWidth: 1, borderColor: 'var(--border)', borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 16, color: 'var(--text-main)', outlineStyle: 'none' as any }}
+          secureTextEntry
+          value={newPassword}
+          onChange={(e: any) => setNewPassword(e.nativeEvent.text)}
+        />
+
+        <Text style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8, fontWeight: '500' }}>Confirmar Nova Senha</Text>
+        <TextInput 
+          style={{ borderWidth: 1, borderColor: 'var(--border)', borderRadius: 8, padding: 12, marginBottom: 24, fontSize: 16, color: 'var(--text-main)', outlineStyle: 'none' as any }}
+          secureTextEntry
+          value={confirmPassword}
+          onChange={(e: any) => setConfirmPassword(e.nativeEvent.text)}
+        />
+
+        <TouchableOpacity 
+          style={{ backgroundColor: 'var(--primary)', padding: 14, borderRadius: 8, alignItems: 'center' }} 
+          onPress={submitPasswordChange} 
+          disabled={loading || success}
+        >
+          {loading ? <ActivityIndicator color="var(--bg-card)" /> : <Text style={{ color: 'var(--bg-card)', fontWeight: '600', fontSize: 16 }}>Atualizar Senha</Text>}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 export default function AppWrapper() {
   const [user, setUser] = useState<User | null>(null);
   const [loadingApp, setLoadingApp] = useState(true);
+  const [isInPasswordRecovery, setIsInPasswordRecovery] = useState(false);
 
   useEffect(() => {
+    // Detectar hash ou query de recuperação para a plataforma Web
+    if (Platform.OS === 'web') {
+      const location = window.location;
+      if (location.hash.includes('type=recovery') || location.search.includes('recovery=true')) {
+        setIsInPasswordRecovery(true);
+      }
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoadingApp(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsInPasswordRecovery(true);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -214,6 +300,23 @@ export default function AppWrapper() {
 
   if (loadingApp) {
     return <ActivityIndicator style={{ flex: 1, backgroundColor: 'var(--bg-app)' }} color="var(--primary)" size="large" />;
+  }
+
+  // Redirecionamento exclusivo de recuperação de senha
+  if (isInPasswordRecovery) {
+    return (
+      <ErrorBoundary>
+        <ResetRecoveryPassword 
+          onComplete={() => {
+            setIsInPasswordRecovery(false);
+            if (Platform.OS === 'web') {
+              // Limpar a URL para não carregar a tela de redefinição novamente ao recarregar a página
+              window.history.replaceState(null, '', window.location.pathname);
+            }
+          }} 
+        />
+      </ErrorBoundary>
+    );
   }
 
   // Handle force password change outside the main app framework

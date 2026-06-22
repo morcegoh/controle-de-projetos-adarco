@@ -16,6 +16,13 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Estados adicionais para o fluxo de redefinição de senha
+  const [isForgotMode, setIsForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState('');
+  const [forgotError, setForgotError] = useState('');
+
   useEffect(() => {
     if (Platform.OS === 'web') {
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -61,6 +68,33 @@ export default function LoginScreen() {
     }
   };
 
+  const submitForgotPassword = async () => {
+    if (!forgotEmail) {
+      setForgotError('Preencha o e-mail');
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError('');
+    setForgotMessage('');
+    try {
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao processar solicitação');
+      }
+      setForgotMessage(data.message || 'Instruções de redefinição de senha enviadas com sucesso!');
+      setForgotEmail('');
+    } catch (e: any) {
+      setForgotError(e.message);
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
   const gradientColors = theme === 'dark' 
     ? ['#000000', '#022c15', '#000000']
     : ['#002A15', '#004221', '#001a0d'];
@@ -87,77 +121,139 @@ export default function LoginScreen() {
         </View>
 
         <View style={[styles.card, isMobile && { padding: 24, borderRadius: 16 }]}>
-          <View style={styles.cardHeader}>
-            <Text style={[styles.title, isMobile && { fontSize: 24 }]}>Login</Text>
-            <Text style={[styles.subtitle, isMobile && { fontSize: 14 }]}>Digite suas credenciais para continuar</Text>
-          </View>
-          
-          {error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
+          {!isForgotMode ? (
+            <>
+              <View style={styles.cardHeader}>
+                <Text style={[styles.title, isMobile && { fontSize: 24 }]}>Login</Text>
+                <Text style={[styles.subtitle, isMobile && { fontSize: 14 }]}>Digite suas credenciais para continuar</Text>
+              </View>
+              
+              {error ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputWrapper}>
-              <Mail color="var(--text-muted)" size={20} style={styles.inputIcon} />
-              <TextInput 
-                style={styles.input}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholder="seunome@adarco.com.br"
-                placeholderTextColor="#94A3B8"
-                value={email}
-                onFocus={(e: any) => e.target.select()}
-                onChangeText={setEmail}
-              />
-            </View>
-          </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email</Text>
+                <View style={styles.inputWrapper}>
+                  <Mail color="var(--text-muted)" size={20} style={styles.inputIcon} />
+                  <TextInput 
+                    style={styles.input}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholder="seunome@adarco.com.br"
+                    placeholderTextColor="#94A3B8"
+                    value={email}
+                    onFocus={(e: any) => e.target.select()}
+                    onChangeText={setEmail}
+                  />
+                </View>
+              </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Senha</Text>
-            <View style={styles.inputWrapper}>
-              <Lock color="var(--text-muted)" size={20} style={styles.inputIcon} />
-              <TextInput 
-                style={styles.input}
-                secureTextEntry={!showPassword}
-                placeholder="••••••••"
-                placeholderTextColor="#94A3B8"
-                value={password}
-                onFocus={(e: any) => e.target.select()}
-                onChangeText={setPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 12 }}>
-                {showPassword ? (
-                  <EyeOff color="var(--text-muted)" size={20} />
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Senha</Text>
+                <View style={styles.inputWrapper}>
+                  <Lock color="var(--text-muted)" size={20} style={styles.inputIcon} />
+                  <TextInput 
+                    style={styles.input}
+                    secureTextEntry={!showPassword}
+                    placeholder="••••••••"
+                    placeholderTextColor="#94A3B8"
+                    value={password}
+                    onFocus={(e: any) => e.target.select()}
+                    onChangeText={setPassword}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={{ padding: 12 }}>
+                    {showPassword ? (
+                      <EyeOff color="var(--text-muted)" size={20} />
+                    ) : (
+                      <Eye color="var(--text-muted)" size={20} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+                {capsLockOn && (
+                  <View style={styles.capsLockWarning}>
+                    <AlertTriangle color="var(--warning)" size={14} />
+                    <Text style={styles.capsLockText}>Caps Lock ativado</Text>
+                  </View>
+                )}
+              </View>
+
+              <TouchableOpacity style={styles.forgotPassword} onPress={() => {
+                setIsForgotMode(true);
+                setForgotError('');
+                setForgotMessage('');
+                setForgotEmail(email || '');
+              }}>
+                <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.button} onPress={submitLogin} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator color="var(--text-main)" />
                 ) : (
-                  <Eye color="var(--text-muted)" size={20} />
+                  <View style={styles.buttonContent}>
+                    <Text style={styles.buttonText}>Entrar no Sistema</Text>
+                    <ArrowRight color="var(--text-main)" size={20} />
+                  </View>
                 )}
               </TouchableOpacity>
-            </View>
-            {capsLockOn && (
-              <View style={styles.capsLockWarning}>
-                <AlertTriangle color="var(--warning)" size={14} />
-                <Text style={styles.capsLockText}>Caps Lock ativado</Text>
+            </>
+          ) : (
+            <>
+              <View style={styles.cardHeader}>
+                <Text style={[styles.title, isMobile && { fontSize: 24 }]}>Recuperar Senha</Text>
+                <Text style={[styles.subtitle, isMobile && { fontSize: 13, lineHeight: 18 }]}>
+                  Digite seu e-mail corporativo. Apenas usuários administradores podem restaurar o acesso por conta própria.
+                </Text>
               </View>
-            )}
-          </View>
+              
+              {forgotError ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{forgotError}</Text>
+                </View>
+              ) : null}
 
-          <TouchableOpacity style={styles.forgotPassword}>
-            <Text style={styles.forgotPasswordText}>Esqueceu a senha?</Text>
-          </TouchableOpacity>
+              {forgotMessage ? (
+                <View style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderWidth: 1, borderColor: '#10b981', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                  <Text style={{ color: '#10b981', fontSize: 14, fontWeight: '500', textAlign: 'center' }}>{forgotMessage}</Text>
+                </View>
+              ) : null}
 
-          <TouchableOpacity style={styles.button} onPress={submitLogin} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color="var(--text-main)" />
-            ) : (
-              <View style={styles.buttonContent}>
-                <Text style={styles.buttonText}>Entrar no Sistema</Text>
-                <ArrowRight color="var(--text-main)" size={20} />
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>E-mail de Trabalho</Text>
+                <View style={styles.inputWrapper}>
+                  <Mail color="var(--text-muted)" size={20} style={styles.inputIcon} />
+                  <TextInput 
+                    style={styles.input}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    placeholder="email@adarco.com.br"
+                    placeholderTextColor="#94A3B8"
+                    value={forgotEmail}
+                    onFocus={(e: any) => e.target.select()}
+                    onChangeText={setForgotEmail}
+                  />
+                </View>
               </View>
-            )}
-          </TouchableOpacity>
+
+              <TouchableOpacity style={styles.button} onPress={submitForgotPassword} disabled={forgotLoading}>
+                {forgotLoading ? (
+                  <ActivityIndicator color="var(--text-main)" />
+                ) : (
+                  <View style={styles.buttonContent}>
+                    <Text style={styles.buttonText}>Enviar Instruções</Text>
+                    <ArrowRight color="var(--text-main)" size={20} />
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity style={{ alignSelf: 'center', marginTop: 24, padding: 8 }} onPress={() => setIsForgotMode(false)}>
+                <Text style={{ color: 'var(--text-muted)', fontSize: 14, fontWeight: '600' }}>Voltar para o login</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </View>
     </View>
